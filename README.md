@@ -9,11 +9,13 @@ Open `index.html` directly in a browser, or deploy this folder as a static site.
 ## Pages
 
 - `index.html` — movie discovery, search, filters, and featured showtimes
+- `search.html` — exact seat-arrangement search, area/cinema/time filters, and distance sorting
 - `movie.html` — movie details and cinema/showtime selection
-- `seats.html` — seat selection and booking fee summary
+- `seats.html` — matched seat-group map, alternate groups, availability refresh, and booking fee summary
 - `checkout.html` — guest details and payment-method preview
 - `ticket.html` — booking confirmation and sample scannable ticket
 - `account.html` — sign-in/account preview
+- `resale.html` — resale marketplace, eligible-ticket listing flow, buyer fees, transfer and expiry previews
 - `support.html` — FAQs and cinema policy information
 - `operator.html` — cinema operator portal preview
 

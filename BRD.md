@@ -37,11 +37,13 @@ Numerical targets and measurement methods are open decisions.
 - Arabic and English language support.
 - Pilot participation for 3–5 cinemas.
 - Movie-first discovery: customers choose a movie and see cinemas and showtimes.
+- Search by requested ticket quantity and seat arrangement; return only showtimes with live availability that meets the request.
 - Live showtimes, seat availability, ticket prices, seat reservation, and booking confirmation through cinema integrations.
 - Guest and account-based booking.
 - Seat selection and multi-ticket orders, limited only by the seats available and cinema rules.
 - Online payment by bank card and supported local digital wallets.
 - Cinema operator portal to view bookings and correct listings.
+- Ticket resale marketplace, with the rules captured in section 11.
 - Scannable ticket in the website and by email.
 - Platform first-line customer support.
 - Fixed customer platform fee of 5 EGP per ticket.
@@ -51,7 +53,6 @@ Numerical targets and measurement methods are open decisions.
 - Cinemas without an integration that provides live availability and confirms bookings.
 - Mobile applications; these are planned after the website pilot.
 - Paid user subscriptions and early-access booking benefits; these are planned for later phases.
-- Ticket resale; this is planned for a later phase.
 
 ## 5. Users and stakeholders
 
@@ -88,12 +89,28 @@ A booking is considered successful when payment is captured and the cinema confi
 - The platform shall allow browsing without an account.
 - Customers shall be able to discover showtimes by choosing a movie first.
 - Results shall show participating cinemas, showtimes, location, ticket prices, and live seat availability.
+- Customers shall be able to filter results by cinema, area, and showtime range.
+- Qualifying showtimes shall be sortable by soonest showtime and distance from the customer's selected or shared location; customers shall be able to choose the sort order.
+- Distance sorting shall support optional device location and a manually selected area; location sharing shall be optional.
+- After choosing a movie, customers shall be able to enter the number of seats needed and specify whether seats must be connected, separated, or either.
+- Search results shall include only cinema/showtime options where the requested number of seats can be selected and held together at that time.
+- A showtime qualifies when at least the requested number of matching seats are available; the customer selects exactly the requested number for that booking.
+- If there are no exact matches, the platform shall report no matching showtimes and let customers change the requested quantity or arrangement; it shall not silently broaden criteria or present near matches as exact results.
+- If matching seats become unavailable before selection, the platform shall refresh availability and present updated matching options.
+- Connected seats mean seats immediately next to each other in the same row.
+- When separated seats are allowed, results shall label the separated seat groups clearly; they shall only be shown when the customer permits separated seats.
+- For searches allowing separated seats, any grouping pattern that totals the requested quantity may qualify (for example, 2+2 for four seats).
+- Connected and separated matches shall have equal priority in results when the customer allows either arrangement.
+- The seat map shall highlight the seat or seat groups that matched the search request.
+- The platform shall highlight a best matching seat group and allow the customer to choose another qualifying group on the seat map.
 - Listings shall support Arabic and English.
 - Cinema systems are the source for showtime and availability information; cinemas are responsible for correcting listing data.
 
 ### 7.2 Seat selection and booking
 
 - Customers shall be able to select seats and book multiple seats in one order, subject to cinema availability and rules.
+- The platform shall hold the exact highlighted seats selected by the customer during checkout, subject to the cinema integration's hold capability and timeout rules.
+- The platform shall not impose an additional fixed booking quantity limit; cinema availability and rules determine the maximum.
 - The platform shall recheck availability and reserve seats before payment.
 - Seat holds shall be released if payment fails. Hold duration and timeout handling are open technical decisions.
 - The platform shall only offer ticket sales for cinemas that provide live availability and booking confirmation through an integration.
@@ -166,14 +183,32 @@ Advertising inventory, targeting controls, ranking rules, reporting, and subscri
 
 Paid user subscriptions are deferred beyond launch. A proposed future benefit is access to bookings before they open to other users. Pricing, eligibility, early-access window, and participating show rules remain to be defined.
 
-## 11. Later-phase ticket resale
+## 11. Current-phase ticket resale
 
-Ticket resale is planned for a later phase. The proposed resale model is:
+Ticket resale is included in the current development phase. The agreed business rules are:
 
-- A user may resell a ticket to another user at the same price originally paid.
-- The platform deducts a 20 EGP fee from the resale transaction.
+- A ticket owner may list tickets from a booking individually or select a subset for resale.
+- Only tickets originally booked through the platform are eligible for resale.
+- A ticket owner must have a platform account to list a ticket for resale.
+- The platform/cinema integration shall verify ticket eligibility before publishing a resale listing.
+- Sellers must add verified payout details to their account before listing a ticket.
+- The resale listing price is capped at the actual amount paid for that ticket, excluding platform fees.
+- The buyer pays the resale listing price plus the existing fixed 5 EGP buyer fee.
+- The seller receives the resale listing price less a 20 EGP resale fee, floored at zero; the seller shall never owe a negative amount from a resale.
+- The 20 EGP seller fee is deducted only after a successful resale transfer.
+- A seller may withdraw an unsold listing.
+- If a resale listing expires unsold, the listing shall close. The original ticket becomes usable again only after the cinema confirms reactivation; until then it remains blocked and the owner/platform support shall be alerted.
+- Scanned or used tickets shall not be eligible for resale.
+- When a resale purchase succeeds, the seller's original ticket shall be invalidated and a replacement ticket issued to the buyer.
+- The current ticket holder is the party eligible to request a refund under the applicable cinema policy.
+- A ticket may be listed until the show starts. If it remains unsold, the listing closes and the ticket returns to the original owner for use, subject to cinema entry rules.
+- Seller proceeds are paid after the buyer's payment succeeds and ticket transfer is confirmed.
+- If buyer payment succeeds but ticket transfer/replacement fails, the resale shall be cancelled, the buyer shall be refunded automatically, and the seller's original ticket shall remain valid.
+- If only some tickets in a multi-ticket listing sell, unsold tickets remain valid for the original owner and may be withdrawn or relisted until showtime.
+- If the cinema cancels or changes a show after resale, notify both parties and apply the cinema's policy to the current ticket holder; the platform coordinates the refund or rebooking.
+- If the cinema policy allows a refund after resale, the ticket price is refundable but platform fees are non-refundable, subject to applicable cinema, payment-provider, and contractual terms.
 
-Resale eligibility, timing cutoffs, ticket transfer and invalidation, buyer protections, payment flow, refunds, show changes, and application of the resale fee require separate requirements and cinema agreement.
+Buyer protections, payment-provider support, seller payout method and timing, refund accounting, and cinema integration requirements still need detailed requirements and cinema agreement. The cinema integration must support invalidating the original ticket and validating the replacement ticket. If a resale listing expires unsold, it must not leave both the original owner and a prospective buyer able to use the same ticket.
 
 ## 12. Non-functional requirements and quality attributes
 
@@ -231,6 +266,15 @@ The initial product must support Arabic and English, protect customer contact an
 8. **Seat hold behavior:** How long should a seat be held during payment, and what should happen on timeout or delayed payment confirmation?
 9. **Cancellation workflow:** What are the notification, refund, and rebooking timelines for each cinema?
 10. **Technical quality targets:** What launch targets should apply to performance, availability, security, recovery, accessibility, and browser/device support?
+11. **Resale seller payout:** What payout method and timing should apply, and how should payment-provider costs be handled?
+12. **Resale ticket transfer:** Which cinema integrations can invalidate original tickets and validate replacements, and what is the recovery process if transfer fails?
+13. **Resale show cancellation:** How should any refund be split between buyer, seller, platform fee, and cinema under the cinema's policy?
+14. **Seat layout data:** Can pilot cinema integrations provide seat maps and stable seat identifiers needed to verify connected and separated groups?
+15. **Seat-search ordering:** The seat arrangement itself will not be prioritized when either arrangement is allowed; how should qualifying showtimes be sorted (for example, by soonest showtime, distance, or price)?
+16. **Resale refunds:** How should refunds be split between buyer, seller, platform fee, and cinema when the cinema policy permits a refund after resale?
+17. **Distance sorting:** Define the distance calculation and treatment of unavailable or approximate cinema location data.
+18. **Resale expiry and recovery:** Define the cinema/API confirmation needed before restoring an unsold ticket to valid status, and the recovery path if that confirmation is unavailable.
+19. **Resale fee refunds:** Confirm the non-refundable treatment of platform fees in cinema agreements and payment-provider flows, including any legal or contractual exceptions.
 
 ## 16. Revision history
 
