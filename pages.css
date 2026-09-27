@@ -11,7 +11,7 @@ body{background:var(--bg);color:var(--ink)}
 .brand{color:#f2d58e}
 .brand{gap:7px}
 .brand::before{content:none}
-.brand-logo{display:block;flex:none;width:98px;height:72px;background:transparent url("assets/yalla-cinema-logo.png") no-repeat 50% 38% / 216% auto;mix-blend-mode:screen}
+.brand-logo{display:block;flex:none;width:98px;height:68px;background:transparent url("assets/yalla-cinema-logo-transparent.png") no-repeat center / contain}
 .navlinks{color:#d9cfb9}
 .navlinks a:hover,.navlinks a.active{color:#e4c36e}
 .navside .loc,.navside .login,.loc,.lang,.login{border-color:#55462b;background:#1b1915;color:#f2ead7}
