@@ -3,3 +3,73 @@
 @media(max-width:760px){body{padding-bottom:calc(68px + env(safe-area-inset-bottom))}.topbar{backdrop-filter:none}.topbar .navlinks{display:flex;position:fixed;inset:auto 0 0;z-index:20;min-height:calc(64px + env(safe-area-inset-bottom));padding:5px max(8px,env(safe-area-inset-left)) env(safe-area-inset-bottom) max(8px,env(safe-area-inset-right));justify-content:space-around;align-items:center;gap:2px;background:#fffaf1f5;border-top:1px solid var(--line);backdrop-filter:blur(16px);box-shadow:0 -8px 24px #29243b12}.topbar .navlinks a{min-width:0;min-height:48px;padding:8px 10px;display:flex;align-items:center;justify-content:center;text-align:center;font-size:12px;font-weight:750;white-space:nowrap}.topbar .navlinks a.active{color:var(--coral)}.seat-layout,.split,.movieDetail{grid-template-columns:1fr}.showcard{grid-template-columns:1fr auto;gap:12px}.showcard .times{grid-column:1/-1}.showcard .btn{grid-column:2;grid-row:1}.statrow{grid-template-columns:repeat(2,1fr)}.admin{grid-template-columns:1fr}.sidebar{border-right:0;border-bottom:1px solid var(--line);display:flex;overflow:auto}.sideitem{white-space:nowrap}.adminmain{padding:17px 10px}table{font-size:11px}th,td{padding:8px}.summary{position:static}.cardgrid{grid-template-columns:1fr}.heroPoster:after{right:4%;font-size:140px}}
 @media(max-width:500px){.wrap{width:calc(100% - 28px)}.loc{display:none}.topbar .navlinks a{font-size:11px;padding-inline:4px}.pageintro{padding:28px 0 18px}.h1{font-size:38px}.footer-inner{flex-direction:column}.footer-links{flex-wrap:wrap}.seatbox{padding:15px 8px}.seatgrid{gap:5px}.seat{height:26px;font-size:8px}.payment-options{flex-direction:column}.progress{gap:5px;font-size:10px}.progress i{width:13px}.ticket-main,.ticket-top{padding:20px}}
 .seat.match-alt{outline:3px solid #a87be1;outline-offset:1px}.seat.selected,.seat.match-best{background:var(--coral);border-color:var(--coral);color:white}.match-options{display:flex;gap:8px;flex-wrap:wrap;margin:5px auto 20px;max-width:500px;justify-content:center}.match-choice{border:1px solid #e6ddd2;background:white;border-radius:10px;padding:8px 11px;color:#615b70;font-size:11px;font-weight:750}.match-choice.active{border-color:var(--coral);background:#fff0ec;color:#d74d3d;box-shadow:0 0 0 2px #ff654d1c}.seat-refresh{border:0;background:none;color:#d74d3d;font-size:12px;font-weight:800;padding:8px 0}.resale-row{padding:17px;border-bottom:1px solid var(--line);display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center}.resale-row:last-child{border-bottom:0}.fee-box{border-radius:12px;background:#fff5e5;padding:13px;color:#65583c;font-size:12px}
+
+/* YALLA brand system: black and gold lead; warm cream supports reading and forms. */
+:root{--ink:#f4eedf;--muted:#b9ad91;--bg:#11100e;--panel:#1c1914;--line:#453923;--coral:#c5a15a;--orange:#d5b15f;--lilac:#292319;--green:#91c59c;--shadow:0 14px 38px #0005}
+body{background:var(--bg);color:var(--ink)}
+.topbar{background:#11100fee;border-bottom-color:#4b3b20}
+.brand{color:#f2d58e}
+.brand{gap:7px}
+.brand::before{content:none}
+.brand-ar{font:700 24px/1 Georgia,"Times New Roman",serif;color:#e3bf68;direction:rtl}
+.brand-play{font:800 27px/1 Arial,sans-serif;color:#e3bf68}
+.brand-lockup{display:grid;gap:3px;line-height:1}
+.brand-lockup strong{font:800 16px/1 Manrope,"DM Sans",sans-serif;letter-spacing:1.1px}
+.brand-lockup small{font:600 8px/1 "DM Sans",sans-serif;letter-spacing:3px;text-transform:uppercase;color:#cfb875}
+.navlinks{color:#d9cfb9}
+.navlinks a:hover,.navlinks a.active{color:#e4c36e}
+.navside .loc,.navside .login,.loc,.lang,.login{border-color:#55462b;background:#1b1915;color:#f2ead7}
+.login{font-weight:750}
+.eyebrow{color:#a17b32}
+.crumb a,.inlineNotice{color:#94702d}
+.btn{background:#c5a15a;color:#18140d;box-shadow:0 4px 0 #89672f}
+.btn:hover{box-shadow:0 6px 0 #89672f}
+.btn.dark{background:#11100e;color:#e4c36e;box-shadow:0 4px 0 #000;border:1px solid #554321}
+.btn.soft{background:#f3ead6;color:#76551f;border-color:#d8c18b;box-shadow:none}
+.badge{background:#f2e7c9;color:#70521b}
+.panel{background:var(--panel);border-color:var(--line);box-shadow:var(--shadow)}
+.field label{color:#e1d3b2}
+.field input,.field select,.field textarea{background:#fffaf0;color:#211c12;border-color:#d9c99f}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:#b18a43;box-shadow:0 0 0 3px #c5a15a2b}
+.footer{background:#11100e;border-top-color:#493b25;color:#c6b99d}
+.footer a:hover{color:#e4c36e}
+.heroPoster{background:radial-gradient(circle at 72% 32%,#d7b96f,#816534 32%,#292319 68%,#11100e)}
+.ticket-top{background:#11100e}
+.seat.match-alt{outline-color:#d2ad5a}
+.seat.selected,.seat.match-best{background:#c5a15a;border-color:#a17b32;color:#18140d}
+.match-choice{border-color:#ded0ad;background:#fffaf0;color:#554a32}
+.match-choice.active{border-color:#a17b32;background:#f2e7c9;color:#6f5018;box-shadow:0 0 0 2px #c5a15a2b}
+.seat-refresh{color:#8b692c}
+.timebtn:hover,.timebtn.sel{border-color:#b18a43;background:#f3e8c9;color:#76551f}
+.sideitem.active{background:#f1e6c9;color:#76551f}
+.resale-hero{background:linear-gradient(125deg,#17140f,#292113 58%,#493820)!important;border:1px solid #796137;color:#f5edd9}
+.resale-hero .lead,.resale-hero .subtle{color:#d1c4a7}
+.resale-hero h1{color:#f4dfa6}
+.resale-hero .fee-box{background:#211d15;color:#e3d6b8;border:1px solid #554629}
+.tab{background:#fffaf0;color:#756b56;border-color:#dfd1ad}
+.tab.active{background:#f0e4c5;color:#76551f;border-color:#c5a15a}
+.verify{background:#f4ead0;border-color:#ddc894;color:#63502a}
+.modal-bg{background:#11100eb8}
+.resale-modal{background:#fffaf0;border:1px solid #dfd1ad;color:#211c12}
+.time-pick.sel{border-color:#aa813a!important;background:#f1e5c5!important;color:#76551f!important}
+.match-pill.sep{background:#f0e6d0;color:#76551f}
+.origin-box{background:#eee5d2}
+.topbar .navlinks a.active{color:#e4c36e}
+.search-layout .match-pill.sep{background:#f0e6d0;color:#76551f}
+.filters-panel .origin-box button{color:#8b692c}
+.resale-columns .tab.active{background:#f0e4c5;color:#76551f;border-color:#c5a15a}
+.resale-columns .verify{background:#f4ead0;border-color:#ddc894;color:#63502a}
+.formpanel a[style*="color:#df5844"]{color:#8b692c!important}
+.sidebar{background:#1c1914;border-color:#453923}
+.sideitem{color:#c3b89f}
+.sideitem:hover{color:#f0cf75}
+table{background:#1c1914;color:#f4eedf}
+th{background:#292319;color:#d9c99f}
+td{border-color:#453923}
+.timebtn,.payopt{background:#211e17;color:#e8ddc5;border-color:#51442b}
+.timebtn:hover,.timebtn.sel,.payopt.sel{background:#352b1a;color:#f0cf75;border-color:#c5a15a}
+.origin-box{background:#211e17}
+.match-choice{border-color:#55472d;background:#211e17;color:#e0d4b8}
+.match-choice.active{border-color:#c5a15a;background:#352b1a;color:#f0cf75;box-shadow:0 0 0 2px #c5a15a2b}
+.formpanel label[style*="color:#716a82"]{color:#c0b49a!important}
+@media(max-width:760px){.topbar .navlinks{background:#11100ff5;border-top-color:#4b3b20;box-shadow:0 -8px 24px #0004}.topbar .navlinks a{color:#d9cfb9}.topbar .navlinks a.active{color:#f0cf75}}
