@@ -35,7 +35,7 @@ type Props = {
  */
 export function SeatGrid({ rows, cols, aisles = [], unavailable, picked, matched, onSeat }: Props) {
   const theme = useTheme();
-  const { t } = useI18n();
+  const { t, rtl } = useI18n();
   const walkways = new Set(aisles.filter((a) => a > 0 && a < cols));
   const columns = (cell: (c: number) => ReactNode) =>
     Array.from({ length: cols }, (_, c) => (
@@ -47,15 +47,24 @@ export function SeatGrid({ rows, cols, aisles = [], unavailable, picked, matched
 
   return (
     <View style={styles.hall} accessibilityLabel={t.seatMap}>
+      <View style={[styles.screen, { backgroundColor: theme.accent }]} />
+      {/* Labels are centred by their boxes, not textAlign: on the web the app's right-to-left text rule overrides textAlign. */}
+      <Text style={[styles.screenLabel, { color: theme.muted }, rtl && { letterSpacing: 0 }]}>{t.screen}</Text>
       <View style={styles.row} aria-hidden>
         <View style={styles.rowLabel} />
-        {columns((c) => <Text style={[styles.number, { color: theme.muted }]}>{c + 1}</Text>)}
+        {columns((c) => (
+          <View style={styles.number}>
+            <Text style={[styles.label, { color: theme.muted, fontSize: 9 }]}>{c + 1}</Text>
+          </View>
+        ))}
       </View>
       {Array.from({ length: rows }, (_, r) => {
         const letter = String.fromCharCode(65 + r);
         return (
           <View key={letter} style={styles.row}>
-            <Text style={[styles.rowLabel, { color: theme.muted }]}>{letter}</Text>
+            <View style={styles.rowLabel}>
+              <Text style={[styles.label, { color: theme.muted }]}>{letter}</Text>
+            </View>
             {columns((c) => {
               const id = letter + (c + 1);
               const taken = unavailable.has(id);
@@ -65,7 +74,7 @@ export function SeatGrid({ rows, cols, aisles = [], unavailable, picked, matched
                 <Pressable
                   accessibilityRole="checkbox"
                   accessibilityLabel={t.seatLabel(id, taken ? 'taken' : '')}
-                  accessibilityState={{ checked: on, disabled: taken }}
+                  aria-checked={on}
                   disabled={taken}
                   onPress={() => onSeat(id)}
                   style={({ pressed }) => [styles.cell, pressed && { opacity: 0.55 }]}
@@ -103,8 +112,11 @@ export function SeatLegend() {
 const styles = StyleSheet.create({
   hall: { direction: 'ltr', width: '100%', maxWidth: 480, alignSelf: 'center' },
   row: { flexDirection: 'row', alignItems: 'center' },
-  rowLabel: { width: 16, fontSize: 11, textAlign: 'center' },
-  number: { flex: 1, fontSize: 9, textAlign: 'center', marginBottom: 2 },
+  screen: { height: 5, borderRadius: 4, marginTop: 20, marginHorizontal: '12%', opacity: 0.7 },
+  screenLabel: { alignSelf: 'center', fontSize: 10, letterSpacing: 3, marginTop: 4, marginBottom: 10 },
+  rowLabel: { width: 16, alignItems: 'center' },
+  number: { flex: 1, alignItems: 'center', marginBottom: 2 },
+  label: { fontSize: 11 },
   // The cell is the tap target: full column width and 38 points tall, with the drawn seat inside it.
   cell: { flex: 1, height: 38, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 2 },
   seat: {

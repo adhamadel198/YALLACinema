@@ -22,7 +22,7 @@ const MAX_CHOICES = 8;
  */
 export default function SeatScreen() {
   const theme = useTheme();
-  const { t, lang, rtl } = useI18n();
+  const { t, lang } = useI18n();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ id: string; count?: string; arrangement?: Arrangement }>();
   // The count arrives in the URL, so keep it to a whole number the API accepts.
@@ -108,13 +108,11 @@ export default function SeatScreen() {
           </Text>
         )}
 
-        <View style={[styles.screen, { backgroundColor: theme.accent }]} />
-        <Text style={[styles.screenLabel, { color: theme.muted }, rtl && { letterSpacing: 0 }]}>{t.screen}</Text>
         <SeatGrid rows={rows} cols={cols} aisles={aisles} unavailable={unavailable} picked={picked} matched={matchedSeats} onSeat={onSeat} />
         <SeatLegend />
 
         {!canBook ? (
-          <Message text={t.noGroupsLeft(count)} />
+          <Message text={t.notEnoughSeats(count)} />
         ) : map.data.groups.length === 0 ? (
           <Text style={{ color: theme.muted, marginTop: 16 }}>{t.noMatchPickYourself}</Text>
         ) : (
@@ -125,7 +123,7 @@ export default function SeatScreen() {
                 const on = sameSeats(g);
                 return (
                   <Pressable key={g.seats.join()} onPress={() => choose({ seats: g.seats, source: i === 0 ? 'suggested' : 'group' })}
-                    accessibilityRole="radio" accessibilityState={{ selected: on }}
+                    accessibilityRole="radio" aria-checked={on}
                     style={[styles.chip, { borderColor: on ? theme.accent : theme.line, backgroundColor: on ? theme.accent : 'transparent' }]}>
                     <Text style={{ color: on ? theme.accentInk : theme.ink, fontWeight: '600' }}>
                       {i === 0 ? `${t.best} · ` : ''}{describeSeats(g.seats)}{g.type === 'separated' ? ` (${g.pattern.join('+')})` : ''}
@@ -149,7 +147,7 @@ export default function SeatScreen() {
                   <Text style={[styles.pickedSeats, { color: theme.ink }]}>{describeSeats(seats)}</Text>
                   {seats.length > 1 && (
                     <Text style={{ color: pattern.length > 1 ? theme.muted : theme.good, fontSize: 13 }}>
-                      {pattern.length > 1 ? t.split(pattern.join('+')) : t.togetherTag}
+                      {pattern.length === 1 ? t.togetherTag : pattern.length <= 4 ? t.split(pattern.join('+')) : t.splitPlaces(pattern.length)}
                     </Text>
                   )}
                 </View>
@@ -183,8 +181,6 @@ const styles = StyleSheet.create({
   h1: { fontSize: 24, fontWeight: '800', letterSpacing: -0.5 },
   h2: { fontSize: 18, fontWeight: '800', marginTop: 20, marginBottom: 8 },
   hint: { fontSize: 14, lineHeight: 20, marginTop: 12 },
-  screen: { height: 5, borderRadius: 4, marginTop: 20, marginHorizontal: '12%', opacity: 0.7 },
-  screenLabel: { textAlign: 'center', fontSize: 10, letterSpacing: 3, marginTop: 4, marginBottom: 10 },
   choices: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 8 },
   footer: { borderTopWidth: 1, paddingHorizontal: 16, paddingTop: 12 },
