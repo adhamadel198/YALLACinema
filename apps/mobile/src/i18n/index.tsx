@@ -28,12 +28,15 @@ function applyDirection(lang: Lang) {
     document.documentElement.lang = lang;
     document.documentElement.dir = rtl ? 'rtl' : 'ltr';
     // react-native-web renders Text with dir="auto", so a line starting with a Latin word (a film title)
-    // would align left inside an Arabic layout. Align by the page instead, skipping any Text that sets
-    // its own textAlign (react-native-web gives those an r-textAlign-* class).
+    // would align left inside an Arabic layout. Align by the page instead, skipping any Text that sets its
+    // own textAlign in a StyleSheet (inline textAlign styles win anyway). react-native-web names those classes
+    // r-<hash> in production and r-textAlign-<hash> in development, where <hash> is its hash of
+    // "textAlign" + value: q4m81j center, fdjqy7 left, 1ff274t right, 1kba1pl justify.
     if (!document.getElementById('yalla-dir')) {
       const style = document.createElement('style');
       style.id = 'yalla-dir';
-      style.textContent = 'html[dir="rtl"] [dir="auto"]:not([class*="r-textAlign"]) { text-align: right; }';
+      const explicit = ['q4m81j', 'fdjqy7', '1ff274t', '1kba1pl'].map((h) => `:not([class*="${h}"])`).join('');
+      style.textContent = `html[dir="rtl"] [dir="auto"]${explicit} { text-align: right; }`;
       document.head.appendChild(style);
     }
   } else {
