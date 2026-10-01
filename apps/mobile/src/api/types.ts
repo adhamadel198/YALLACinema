@@ -1,4 +1,6 @@
 // Mirrors the response shapes in apps/api/src. Move to a shared package once more screens use them.
+import type { ShowChange } from './operator';
+
 export type Arrangement = 'connected' | 'separated' | 'either';
 
 /** Most seats in one booking; the API enforces the same limit (apps/api/src/domain/limits.ts). */
@@ -114,4 +116,6 @@ export interface Booking {
   tickets: { id: string; seat: string; qr: string; status: string }[];
   createdAt: string;
   showtime: ShowtimeSummary;
+  /** Set when the cinema changed or cancelled the show after this booking (BRD 9). */
+  showChange?: ShowChange | null;
 }

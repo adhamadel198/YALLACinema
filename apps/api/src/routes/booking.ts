@@ -122,6 +122,9 @@ export async function bookingRoutes(app: FastifyInstance, { store, payments, cin
   // The booking id is an unguessable UUID and acts as the guest's access key until accounts exist.
   app.get<{ Params: { id: string } }>('/v1/bookings/:id', { schema: { params: { type: 'object', properties: { id: { type: 'string', format: 'uuid' } } } } }, async (req, reply) => {
     const booking = await store.booking(req.params.id);
-    return booking ? bookingView(store, booking, langOf(req)) : reply.code(404).send({ error: 'Booking not found' });
+    if (!booking) return reply.code(404).send({ error: 'Booking not found' });
+    // Set when the cinema changed or cancelled the show after this booking was made (BRD 9).
+    const showChange = (await store.corrections?.showChange(booking, langOf(req))) ?? null;
+    return { ...bookingView(store, booking, langOf(req)), showChange };
   });
 }
