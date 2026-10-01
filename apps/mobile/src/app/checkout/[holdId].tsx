@@ -5,6 +5,8 @@ import { api, ApiError } from '../../api/client';
 import { rememberBooking } from '../../api/myBookings';
 import type { Guest, PaymentMethod } from '../../api/types';
 import { useRequest } from '../../api/useRequest';
+import { useAuth } from '../../auth';
+import { signInHref } from '../../auth/routes';
 import { Button, Line, Message, Panel } from '../../components/ui';
 import { mmss, showDate } from '../../format';
 import { useI18n } from '../../i18n';
@@ -17,6 +19,7 @@ export default function Checkout() {
   const { t, lang } = useI18n();
   const { holdId } = useLocalSearchParams<{ holdId: string }>();
   const hold = useRequest(() => api.getHold(holdId), [holdId, lang]);
+  const { account } = useAuth();
   const [guest, setGuest] = useState<Guest>({ name: '', email: '', mobile: '' });
   const [method, setMethod] = useState<PaymentMethod>('card');
   const [accepted, setAccepted] = useState(false);
@@ -28,6 +31,11 @@ export default function Checkout() {
     const timer = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(timer);
   }, []);
+
+  // Saved details (BRD 5.1): fill in from the account, keeping anything already typed.
+  useEffect(() => {
+    if (account) setGuest((g) => ({ name: g.name || account.name, email: g.email || account.email, mobile: g.mobile || account.mobile }));
+  }, [account]);
 
   const methods: { value: PaymentMethod; label: string }[] = [
     { value: 'card', label: t.card },
@@ -93,7 +101,16 @@ export default function Checkout() {
         </Panel>
 
         <Text style={[styles.h2, { color: theme.ink }]}>{t.yourDetails}</Text>
-        <Text style={{ color: theme.muted, marginBottom: 12 }}>{t.noAccountNeeded}</Text>
+        {account ? (
+          <Text style={{ color: theme.muted, marginBottom: 12 }}>{t.checkoutSignedIn(account.email)}</Text>
+        ) : (
+          <>
+            <Text style={{ color: theme.muted }}>{t.noAccountNeeded}</Text>
+            <Pressable onPress={() => router.push(signInHref(`/checkout/${holdId}`))} accessibilityRole="link" style={{ marginTop: 4, marginBottom: 12, alignSelf: 'flex-start' }}>
+              <Text style={{ color: theme.accent, fontWeight: '700' }}>{t.checkoutSignInPrompt}</Text>
+            </Pressable>
+          </>
+        )}
         {field('name', t.fullName, { autoComplete: 'name', textContentType: 'name' })}
         {field('email', t.email, { autoComplete: 'email', keyboardType: 'email-address', autoCapitalize: 'none', textContentType: 'emailAddress' })}
         {field('mobile', t.mobile, { autoComplete: 'tel', keyboardType: 'phone-pad', placeholder: t.mobilePlaceholder, textContentType: 'telephoneNumber' })}

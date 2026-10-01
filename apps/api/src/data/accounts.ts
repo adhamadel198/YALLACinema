@@ -90,4 +90,21 @@ export class Accounts {
   async endSession(token: string) {
     await this.db.query('DELETE FROM sessions WHERE token_hash = $1', [tokenHash(token)]);
   }
+
+  /** Ids of the account's bookings, newest first (booking history, BRD 5.1). */
+  async bookingIds(accountId: string): Promise<string[]> {
+    const { rows } = await this.db.query<{ id: string }>(
+      'SELECT id FROM bookings WHERE account_id = $1 ORDER BY created_at DESC, reference', [accountId]);
+    return rows.map((r) => r.id);
+  }
+
+  /**
+   * Links guest bookings to the account. Only bookings with no account yet are linked, so nobody can
+   * take a booking that already belongs to someone. Returns the ids it linked.
+   */
+  async claimBookings(accountId: string, bookingIds: string[]): Promise<string[]> {
+    const { rows } = await this.db.query<{ id: string }>(
+      'UPDATE bookings SET account_id = $1 WHERE id = ANY($2::uuid[]) AND account_id IS NULL RETURNING id', [accountId, bookingIds]);
+    return rows.map((r) => r.id);
+  }
 }

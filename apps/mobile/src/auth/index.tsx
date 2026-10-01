@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { claimDeviceBookings } from '../api/accounts';
 import { authApi, type Account, type SignUp } from '../api/auth';
 import { ApiError, setAuthToken } from '../api/client';
 
@@ -23,6 +24,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const start = useCallback(async ({ token, account: signedIn }: { token: string; account: Account }) => {
     setAuthToken(token);
+    // Guest bookings made on this device join the account's history. Never blocks signing in.
+    await claimDeviceBookings().catch(() => {});
     setAccount(signedIn);
     await AsyncStorage.setItem(KEY, token).catch(() => {});
     return signedIn;
