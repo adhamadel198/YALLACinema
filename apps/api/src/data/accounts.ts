@@ -133,12 +133,17 @@ export class Accounts {
   }
 
   /**
-   * Links guest bookings to the account. Only bookings with no account yet are linked, so nobody can
-   * take a booking that already belongs to someone. Returns the ids it linked.
+   * Links guest bookings to the account: only bookings with no account yet, made with the account's email
+   * (ignoring case and surrounding spaces), so nobody can take a booking that is someone else's even if they
+   * know its id. Returns the ids it linked.
    */
   async claimBookings(accountId: string, bookingIds: string[]): Promise<string[]> {
     const { rows } = await this.db.query<{ id: string }>(
-      'UPDATE bookings SET account_id = $1 WHERE id = ANY($2::uuid[]) AND account_id IS NULL RETURNING id', [accountId, bookingIds]);
+      `UPDATE bookings b SET account_id = a.id FROM accounts a
+        WHERE a.id = $1 AND b.id = ANY($2::uuid[]) AND b.account_id IS NULL
+          AND lower(btrim(b.holder->>'email')) = lower(btrim(a.email))
+       RETURNING b.id`,
+      [accountId, bookingIds]);
     return rows.map((r) => r.id);
   }
 }

@@ -72,9 +72,11 @@ export async function accountRoutes(app: FastifyInstance, { store, accounts, aut
   });
 
   /**
-   * Attach guest bookings saved on this device to the account (the app calls this after sign-in).
-   * Knowing a booking's id is what proves it is yours, as for GET /v1/bookings/:id. Bookings that
-   * already belong to an account, this one or another, are left alone. Returns the ids it linked.
+   * Attach guest bookings saved on this device to the account (the app calls this after sign-in). Only
+   * bookings made with the account's email (ignoring case) are linked: a booking id opens the tickets
+   * (GET /v1/bookings/:id) but can be shared, so it does not prove the booking is yours, and a linked
+   * booking can be resold. Bookings that already belong to an account, this one or another, are left
+   * alone. Returns the ids it linked; the others stay guest bookings.
    */
   app.post<{ Body: { ids: string[] } }>('/v1/me/bookings/claim', {
     preHandler: auth.requireAccount,

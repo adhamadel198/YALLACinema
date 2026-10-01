@@ -21,7 +21,7 @@ export const en = {
   authPasswordHint: 'At least 8 characters.',
   authCreate: 'Create account',
   authHaveAccount: 'Already have an account?',
-  authDeviceTickets: 'Tickets booked as a guest on this device are added to your account when you sign in.',
+  authDeviceTickets: 'Tickets booked as a guest on this device with this email are added to your account when you sign in.',
 
   authWrongPassword: 'Wrong email or password.',
   authEmailTaken: 'An account with this email already exists.',
@@ -68,7 +68,7 @@ export const ar: typeof en = {
   authPasswordHint: '٨ حروف على الأقل.',
   authCreate: 'اعمل الحساب',
   authHaveAccount: 'عندك حساب بالفعل؟',
-  authDeviceTickets: 'التذاكر اللي حجزتها من الجهاز ده من غير حساب بتتضاف لحسابك لما تسجّل دخول.',
+  authDeviceTickets: 'التذاكر اللي حجزتها من الجهاز ده من غير حساب بالإيميل ده بتتضاف لحسابك لما تسجّل دخول.',
 
   authWrongPassword: 'الإيميل أو كلمة السر غلط.',
   authEmailTaken: 'فيه حساب بالإيميل ده بالفعل.',
