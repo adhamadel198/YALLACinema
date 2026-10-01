@@ -102,3 +102,15 @@ test('unbuilt features answer 501', async () => {
   const app = await buildApp();
   assert.equal((await app.inject({ method: 'GET', url: '/v1/resale/listings' })).statusCode, 501);
 });
+
+test('listings come back in Arabic when asked', async () => {
+  const app = await buildApp();
+  const headers = { 'accept-language': 'ar-EG,ar;q=0.9' };
+  const [movie] = (await app.inject({ url: '/v1/movies', headers })).json();
+  assert.equal(movie.genre, 'دراما');
+  assert.equal(movie.title, 'The Last Light');
+  const { results } = (await app.inject({ url: '/v1/movies/the-last-light/showtimes', headers })).json();
+  assert.match(results[0].cinema.detail, /[؀-ۿ]/);
+  const english = (await app.inject('/v1/movies')).json();
+  assert.equal(english[0].genre, 'Drama');
+});

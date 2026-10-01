@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import type { Store } from '../data/store.ts';
 import { areaCentres } from '../data/seed.ts';
 import { showtimeSummary } from '../data/views.ts';
+import { langOf, localizeCinema, localizeFormat, localizeMovie } from '../data/i18n.ts';
 import { bestGroup, findSeatGroups } from '../domain/seats.ts';
 import type { Area, Arrangement } from '../domain/types.ts';
 
@@ -19,7 +20,7 @@ function km(a: { lat: number; lon: number }, b: { lat: number; lon: number }) {
 const localTime = (iso: string) => iso.slice(11, 16);
 
 export async function catalogRoutes(app: FastifyInstance, { store }: { store: Store }) {
-  app.get('/v1/cinemas', async () => store.cinemas);
+  app.get('/v1/cinemas', async (req) => store.cinemas.map((c) => localizeCinema(c, langOf(req))));
 
   app.get<{ Querystring: { genre?: string; q?: string } }>('/v1/movies', {
     schema: { querystring: { type: 'object', properties: { genre: { type: 'string' }, q: { type: 'string' } } } },
@@ -29,7 +30,7 @@ export async function catalogRoutes(app: FastifyInstance, { store }: { store: St
       .filter((m) => !req.query.genre || m.genre === req.query.genre)
       .filter((m) => !q || m.title.toLowerCase().includes(q))
       .map((m) => ({
-        ...m,
+        ...localizeMovie(m, langOf(req)),
         showtimeCount: store.showtimes.filter((s) => s.movieId === m.id).length,
         fromPrice: Math.min(...store.showtimes.filter((s) => s.movieId === m.id).map((s) => s.price)),
       }));
@@ -37,7 +38,7 @@ export async function catalogRoutes(app: FastifyInstance, { store }: { store: St
 
   app.get<{ Params: { id: string } }>('/v1/movies/:id', async (req, reply) => {
     const movie = store.movie(req.params.id);
-    return movie ?? reply.code(404).send({ error: 'Movie not found' });
+    return movie ? localizeMovie(movie, langOf(req)) : reply.code(404).send({ error: 'Movie not found' });
   });
 
   type ShowtimeQuery = {
@@ -68,6 +69,7 @@ export async function catalogRoutes(app: FastifyInstance, { store }: { store: St
     const movie = store.movie(req.params.id);
     if (!movie) return reply.code(404).send({ error: 'Movie not found' });
     const { count, arrangement, area, cinemaId, from, to, sort, nearArea, lat, lon } = req.query;
+    const lang = langOf(req);
     const origin = lat != null && lon != null ? { lat, lon } : nearArea ? areaCentres[nearArea] : undefined;
 
     const results = store.showtimes
@@ -76,12 +78,12 @@ export async function catalogRoutes(app: FastifyInstance, { store }: { store: St
       .filter((s) => !from || localTime(s.startsAt) >= from)
       .filter((s) => !to || localTime(s.startsAt) <= to)
       .flatMap((s) => {
-        const cinema = store.cinema(s.cinemaId)!;
+        const cinema = localizeCinema(store.cinema(s.cinemaId)!, lang);
         if (area && cinema.area !== area) return [];
         const groups = findSeatGroups(s.seatMap, count, arrangement, store.heldSeats(s.id));
         if (!groups.length) return [];
         return [{
-          showtimeId: s.id, startsAt: s.startsAt, localTime: localTime(s.startsAt), price: s.price, format: s.format,
+          showtimeId: s.id, startsAt: s.startsAt, localTime: localTime(s.startsAt), price: s.price, format: localizeFormat(s.format, lang),
           cinema: { id: cinema.id, name: cinema.name, area: cinema.area, detail: cinema.detail },
           distanceKm: origin ? km(origin, cinema.location) : null,
           matches: {
@@ -99,7 +101,7 @@ export async function catalogRoutes(app: FastifyInstance, { store }: { store: St
   });
 
   app.get<{ Params: { id: string } }>('/v1/showtimes/:id', async (req, reply) =>
-    store.showtime(req.params.id) ? showtimeSummary(store, req.params.id) : reply.code(404).send({ error: 'Showtime not found' }));
+    store.showtime(req.params.id) ? showtimeSummary(store, req.params.id, langOf(req)) : reply.code(404).send({ error: 'Showtime not found' }));
 
   /** Seat map with the matching groups and the highlighted best group. */
   app.get<{ Params: { id: string }; Querystring: { count: number; arrangement: Arrangement } }>('/v1/showtimes/:id/seats', {

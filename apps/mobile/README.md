@@ -23,6 +23,15 @@ Start the API first (`apps/api`, port 4000). The app finds it at the address of 
 | Tickets tab | `src/app/(tabs)/tickets.tsx` | Live: bookings made on this device (ids kept in AsyncStorage) |
 | Profile tab | `src/app/(tabs)/account.tsx` | Placeholder |
 
-Still to migrate from the web prototype: accounts, resale, support, and Arabic/RTL. The cinema operator portal is not started; a reasonable default is to build it as web-only routes in this same app (Expo web).
+Still to migrate from the web prototype: accounts, resale and support.
+
+## Arabic and right-to-left
+
+- UI copy lives in `src/i18n/strings.ts` (English and Egyptian Arabic). Add a key to `en` and TypeScript will require it in `ar`.
+- The language is switched from the header button or the Profile tab, remembered on the device, and defaults to the device language.
+- Every API call sends `Accept-Language`, and the API returns movie and cinema listings in that language. Film titles and cinema brand names stay as published.
+- The layout flips immediately through a root `direction` style and React Navigation's `LocaleDirContext`. On iOS and Android the app also sets `I18nManager.forceRTL`, which completes the switch for native pieces after the next app start.
+- The seat map always keeps the hall's physical layout (seat 1 on the left when facing the screen).
+- Arabic text never gets letter spacing, because it breaks the joined letters. The cinema operator portal is not started; a reasonable default is to build it as web-only routes in this same app (Expo web).
 
 Use `npx expo install <pkg>` to add dependencies so versions match the Expo SDK.

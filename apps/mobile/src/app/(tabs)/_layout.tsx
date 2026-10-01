@@ -1,25 +1,29 @@
 import { Tabs } from 'expo-router';
 import { Text, type ColorValue } from 'react-native';
+import { LanguageButton } from '../../components/LanguageButton';
+import { useI18n } from '../../i18n';
 import { useTheme } from '../../theme';
 
 const icon = (glyph: string) => ({ color }: { color: ColorValue }) => <Text style={{ color, fontSize: 18 }}>{glyph}</Text>;
 
 export default function TabsLayout() {
-  const t = useTheme();
+  const theme = useTheme();
+  const { t } = useI18n();
   return (
     <Tabs
       screenOptions={{
-        headerStyle: { backgroundColor: t.bg },
-        headerTintColor: t.ink,
-        tabBarStyle: { backgroundColor: t.bg, borderTopColor: t.line },
-        tabBarActiveTintColor: t.accent,
-        tabBarInactiveTintColor: t.muted,
-        sceneStyle: { backgroundColor: t.bg },
+        headerStyle: { backgroundColor: theme.bg },
+        headerTintColor: theme.ink,
+        headerRight: () => <LanguageButton />,
+        tabBarStyle: { backgroundColor: theme.bg, borderTopColor: theme.line },
+        tabBarActiveTintColor: theme.accent,
+        tabBarInactiveTintColor: theme.muted,
+        sceneStyle: { backgroundColor: theme.bg },
       }}
     >
-      <Tabs.Screen name="index" options={{ title: 'Movies', tabBarIcon: icon('▶') }} />
-      <Tabs.Screen name="tickets" options={{ title: 'Tickets', tabBarIcon: icon('▭') }} />
-      <Tabs.Screen name="account" options={{ title: 'Profile', tabBarIcon: icon('◯') }} />
+      <Tabs.Screen name="index" options={{ title: t.tabMovies, tabBarIcon: icon('▶') }} />
+      <Tabs.Screen name="tickets" options={{ title: t.tabTickets, tabBarIcon: icon('▭') }} />
+      <Tabs.Screen name="account" options={{ title: t.tabProfile, tabBarIcon: icon('◯') }} />
     </Tabs>
   );
 }

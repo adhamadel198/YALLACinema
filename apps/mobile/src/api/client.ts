@@ -11,6 +11,10 @@ function apiBase() {
   return `http://${host || 'localhost'}:4000`;
 }
 
+let language = 'en';
+/** Listings come back in this language (BRD 7.1). Set by LanguageProvider. */
+export const setApiLanguage = (lang: string) => { language = lang; };
+
 export class ApiError extends Error {
   constructor(message: string, readonly status: number, readonly body: Record<string, unknown>) {
     super(message);
@@ -20,7 +24,7 @@ export class ApiError extends Error {
 async function request<T>(path: string, init?: { method: string; body?: unknown }): Promise<T> {
   const res = await fetch(apiBase() + path, {
     method: init?.method ?? 'GET',
-    headers: init?.body ? { 'Content-Type': 'application/json' } : undefined,
+    headers: { 'Accept-Language': language, ...(init?.body ? { 'Content-Type': 'application/json' } : {}) },
     body: init?.body ? JSON.stringify(init.body) : undefined,
   });
   if (res.status === 204) return undefined as T;

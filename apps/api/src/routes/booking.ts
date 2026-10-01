@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { FastifyInstance, FastifyReply } from 'fastify';
 import type { Store } from '../data/store.ts';
 import { bookingView, showtimeSummary } from '../data/views.ts';
+import { langOf } from '../data/i18n.ts';
 import { bookingTotal } from '../domain/pricing.ts';
 import type { Booking, Guest, PaymentMethod } from '../domain/types.ts';
 import type { CinemaIntegration } from '../integrations/cinema.ts';
@@ -40,7 +41,7 @@ export async function bookingRoutes(app: FastifyInstance, { store, payments, cin
   app.get<{ Params: { id: string } }>('/v1/holds/:id', async (req, reply) => {
     const hold = store.getHold(req.params.id);
     if (!hold) return reply.code(410).send({ error: 'Hold expired or not found' });
-    const showtime = showtimeSummary(store, hold.showtimeId);
+    const showtime = showtimeSummary(store, hold.showtimeId, langOf(req));
     return { ...hold, showtime, price: bookingTotal(showtime.price, hold.seats.length) };
   });
 
@@ -98,13 +99,13 @@ export async function bookingRoutes(app: FastifyInstance, { store, payments, cin
     };
     store.saveBooking(hold.id, booking);
     // TODO: email the ticket once an email provider is chosen (BRD 6 step 9).
-    return reply.code(201).send(bookingView(store, booking));
+    return reply.code(201).send(bookingView(store, booking, langOf(req)));
   });
 
   // The booking id is an unguessable UUID and acts as the guest's access key until accounts exist.
   app.get<{ Params: { id: string } }>('/v1/bookings/:id', async (req, reply) => {
     const booking = store.booking(req.params.id);
-    return booking ? bookingView(store, booking) : reply.code(404).send({ error: 'Booking not found' });
+    return booking ? bookingView(store, booking, langOf(req)) : reply.code(404).send({ error: 'Booking not found' });
   });
 
   // Accounts are optional for booking but required for resale (BRD 7.3, 11).

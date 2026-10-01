@@ -1,14 +1,16 @@
 import { StyleSheet, Text, View, type ViewStyle } from 'react-native';
 import type { Movie } from '../api/types';
+import { useI18n } from '../i18n';
 
 /** Placeholder artwork until real poster images come from cinema listings. */
 export function Poster({ movie, style }: { movie: Movie; style?: ViewStyle }) {
+  const { rtl } = useI18n();
   return (
     <View style={[styles.poster, { backgroundColor: movie.poster.from }, style]}>
       <View style={[styles.fade, { backgroundColor: movie.poster.to }]} />
       <Text style={styles.symbol}>{movie.poster.symbol}</Text>
       <Text style={styles.score}>★ {movie.audienceScore.toFixed(1)}</Text>
-      <Text style={styles.tagline}>{movie.tagline.toUpperCase()}</Text>
+      <Text style={[styles.tagline, rtl && { letterSpacing: 0 }]}>{movie.tagline.toUpperCase()}</Text>
     </View>
   );
 }

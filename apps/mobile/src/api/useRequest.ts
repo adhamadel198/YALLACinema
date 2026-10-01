@@ -6,7 +6,7 @@ export function useRequest<T>(load: () => Promise<T>, deps: unknown[]) {
   const [error, setError] = useState<string>();
   const [loading, setLoading] = useState(true);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const run = useCallback(load, deps);
+  const run = useCallback(() => load(), deps);
 
   const reload = useCallback(() => {
     let live = true;

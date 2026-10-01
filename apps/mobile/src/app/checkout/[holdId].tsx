@@ -1,25 +1,22 @@
-import { router, Stack, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState, type ComponentProps } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { api } from '../../api/client';
+import { api, ApiError } from '../../api/client';
 import { rememberBooking } from '../../api/myBookings';
 import type { Guest, PaymentMethod } from '../../api/types';
 import { useRequest } from '../../api/useRequest';
 import { Button, Line, Message, Panel } from '../../components/ui';
-import { egp, mmss, showDate } from '../../format';
+import { mmss, showDate } from '../../format';
+import { useI18n } from '../../i18n';
 import { describeSeats } from '../../seats';
 import { useTheme } from '../../theme';
 
-const methods: { value: PaymentMethod; label: string }[] = [
-  { value: 'card', label: '💳  Bank card' },
-  { value: 'wallet', label: '📱  Local wallet' },
-];
-
 /** Guest checkout (BRD 6, 7.3, 7.4): contact details, payment method, cinema policy, then pay. */
 export default function Checkout() {
-  const t = useTheme();
+  const theme = useTheme();
+  const { t, lang } = useI18n();
   const { holdId } = useLocalSearchParams<{ holdId: string }>();
-  const hold = useRequest(() => api.getHold(holdId), [holdId]);
+  const hold = useRequest(() => api.getHold(holdId), [holdId, lang]);
   const [guest, setGuest] = useState<Guest>({ name: '', email: '', mobile: '' });
   const [method, setMethod] = useState<PaymentMethod>('card');
   const [accepted, setAccepted] = useState(false);
@@ -32,8 +29,13 @@ export default function Checkout() {
     return () => clearInterval(timer);
   }, []);
 
-  if (hold.error) return <Message text="Your seat hold has expired. Please choose your seats again." onRetry={() => router.back()} />;
-  if (!hold.data) return <ActivityIndicator style={{ flex: 1 }} color={t.accent} />;
+  const methods: { value: PaymentMethod; label: string }[] = [
+    { value: 'card', label: t.card },
+    { value: 'wallet', label: t.wallet },
+  ];
+
+  if (hold.error) return <Message text={t.holdExpired} onRetry={() => router.back()} retryLabel={t.goBack} />;
+  if (!hold.data) return <ActivityIndicator style={{ flex: 1 }} color={theme.accent} />;
   const h = hold.data;
   const left = Date.parse(h.expiresAt) - now;
   const valid = guest.name.trim().length >= 2 && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(guest.email.trim()) && /^\+?[0-9 ]{8,16}$/.test(guest.mobile.trim());
@@ -47,7 +49,8 @@ export default function Checkout() {
       router.dismissAll();
       router.push({ pathname: '/ticket/[id]', params: { id: booking.id } });
     } catch (e) {
-      setError((e as Error).message);
+      const status = e instanceof ApiError ? e.status : 0;
+      setError(status === 402 ? t.paymentFailed : status === 409 ? t.cinemaFailed : status === 410 ? t.holdExpired : t.genericError);
     } finally {
       setBusy(false);
     }
@@ -58,73 +61,72 @@ export default function Checkout() {
     router.back();
   }
 
-  if (left <= 0) return <Message text="Your seat hold has expired. Please choose your seats again." onRetry={() => router.back()} />;
+  if (left <= 0) return <Message text={t.holdExpired} onRetry={() => router.back()} retryLabel={t.goBack} />;
 
   const field = (key: keyof Guest, label: string, props: Partial<ComponentProps<typeof TextInput>>) => (
     <View style={{ marginBottom: 12 }}>
-      <Text style={[styles.label, { color: t.muted }]}>{label}</Text>
+      <Text style={[styles.label, { color: theme.muted }]}>{label}</Text>
       <TextInput
         value={guest[key]}
         onChangeText={(v) => setGuest((g) => ({ ...g, [key]: v }))}
-        style={[styles.input, { color: t.ink, borderColor: t.line, backgroundColor: t.panel }]}
-        placeholderTextColor={t.muted}
+        placeholderTextColor={theme.muted}
         accessibilityLabel={label}
         {...props}
+        style={[styles.input, { color: theme.ink, borderColor: theme.line, backgroundColor: theme.panel }, key !== 'name' && { direction: 'ltr', textAlign: lang === 'ar' ? 'right' : 'left' }]}
       />
     </View>
   );
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <Stack.Screen options={{ title: 'Checkout' }} />
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
         <Panel>
-          <Text style={[styles.title, { color: t.ink }]}>{h.showtime.movie.title}</Text>
-          <Text style={{ color: t.muted, marginBottom: 10 }}>{h.showtime.cinema.name} · {showDate(h.showtime.startsAt)}</Text>
-          <Line label="Seats" value={describeSeats(h.seats)} />
-          <Line label={`Tickets ${h.seats.length} × ${egp(h.showtime.price)}`} value={egp(h.price.tickets)} />
-          <Line label="Platform fee · 5 EGP per ticket" value={egp(h.price.fees)} />
-          <Line label="Total" value={egp(h.price.total)} strong />
-          <Text style={{ color: left < 120000 ? t.accent : t.good, marginTop: 8, fontSize: 13 }}>
-            Seats held for {mmss(left)}
+          <Text style={[styles.title, { color: theme.ink }]}>{h.showtime.movie.title}</Text>
+          <Text style={{ color: theme.muted, marginBottom: 10 }}>{h.showtime.cinema.name} · {showDate(h.showtime.startsAt, t)}</Text>
+          <Line label={t.seats} value={describeSeats(h.seats)} />
+          <Line label={t.ticketsLine(h.seats.length, t.egp(h.showtime.price))} value={t.egp(h.price.tickets)} />
+          <Line label={t.platformFee} value={t.egp(h.price.fees)} />
+          <Line label={t.total} value={t.egp(h.price.total)} strong />
+          <Text style={{ color: left < 120000 ? theme.accent : theme.good, marginTop: 8, fontSize: 13 }}>
+            {t.heldFor(mmss(left))}
           </Text>
         </Panel>
 
-        <Text style={[styles.h2, { color: t.ink }]}>Your details</Text>
-        <Text style={{ color: t.muted, marginBottom: 12 }}>No account needed. We’ll send your ticket to this email.</Text>
-        {field('name', 'Full name', { autoComplete: 'name', textContentType: 'name' })}
-        {field('email', 'Email address', { autoComplete: 'email', keyboardType: 'email-address', autoCapitalize: 'none', textContentType: 'emailAddress' })}
-        {field('mobile', 'Mobile number', { autoComplete: 'tel', keyboardType: 'phone-pad', placeholder: '+20 1XX XXX XXXX', textContentType: 'telephoneNumber' })}
+        <Text style={[styles.h2, { color: theme.ink }]}>{t.yourDetails}</Text>
+        <Text style={{ color: theme.muted, marginBottom: 12 }}>{t.noAccountNeeded}</Text>
+        {field('name', t.fullName, { autoComplete: 'name', textContentType: 'name' })}
+        {field('email', t.email, { autoComplete: 'email', keyboardType: 'email-address', autoCapitalize: 'none', textContentType: 'emailAddress' })}
+        {field('mobile', t.mobile, { autoComplete: 'tel', keyboardType: 'phone-pad', placeholder: t.mobilePlaceholder, textContentType: 'telephoneNumber' })}
 
-        <Text style={[styles.h2, { color: t.ink }]}>Payment method</Text>
+        <Text style={[styles.h2, { color: theme.ink }]}>{t.paymentMethod}</Text>
         <View style={{ flexDirection: 'row', gap: 8 }}>
           {methods.map((m) => {
             const on = m.value === method;
             return (
               <Pressable key={m.value} onPress={() => setMethod(m.value)} accessibilityRole="radio" accessibilityState={{ selected: on }}
-                style={[styles.method, { borderColor: on ? t.accent : t.line, backgroundColor: t.panel }]}>
-                <Text style={{ color: t.ink, fontWeight: on ? '800' : '500' }}>{m.label}</Text>
+                style={[styles.method, { borderColor: on ? theme.accent : theme.line, backgroundColor: theme.panel }]}>
+                <Text style={{ color: theme.ink, fontWeight: on ? '800' : '500' }}>{m.label}</Text>
               </Pressable>
             );
           })}
         </View>
-        <Text style={{ color: t.muted, fontSize: 12, marginTop: 8 }}>
-          Payment is simulated in this build. Card and wallet details will be entered on the payment provider’s secure page.
+        <Text style={{ color: theme.muted, fontSize: 12, marginTop: 8 }}>
+          {t.paymentSimulated}
         </Text>
 
         <Pressable onPress={() => setAccepted((a) => !a)} accessibilityRole="checkbox" accessibilityState={{ checked: accepted }} style={styles.policy}>
-          <View style={[styles.box, { borderColor: accepted ? t.accent : t.line, backgroundColor: accepted ? t.accent : 'transparent' }]}>
-            {accepted && <Text style={{ color: t.accentInk, fontSize: 12, fontWeight: '900' }}>✓</Text>}
+          <View style={[styles.box, { borderColor: accepted ? theme.accent : theme.line, backgroundColor: accepted ? theme.accent : 'transparent' }]}>
+            {accepted && <Text style={{ color: theme.accentInk, fontSize: 12, fontWeight: '900' }}>✓</Text>}
           </View>
-          <Text style={{ color: t.ink, flex: 1 }}>
-            I accept {h.showtime.cinema.name}’s cancellation policy:{' '}
-            <Text style={{ color: t.muted }}>{h.showtime.cinema.cancellationPolicy}</Text>
+          <Text style={{ color: theme.ink, flex: 1 }}>
+            {t.acceptPolicy(h.showtime.cinema.name)}
+            <Text style={{ color: theme.muted }}>{h.showtime.cinema.cancellationPolicy}</Text>
           </Text>
         </Pressable>
 
-        {error && <Text style={{ color: t.accent, marginBottom: 12 }}>{error}</Text>}
-        <Button title={`Pay ${egp(h.price.total)}`} onPress={pay} busy={busy} disabled={!valid || !accepted} />
-        <Button title="Cancel and release seats" kind="secondary" onPress={cancel} style={{ marginTop: 10 }} />
+        {error && <Text style={{ color: theme.accent, marginBottom: 12 }}>{error}</Text>}
+        <Button title={t.pay(t.egp(h.price.total))} onPress={pay} busy={busy} disabled={!valid || !accepted} />
+        <Button title={t.cancelHold} kind="secondary" onPress={cancel} style={{ marginTop: 10 }} />
       </ScrollView>
     </KeyboardAvoidingView>
   );

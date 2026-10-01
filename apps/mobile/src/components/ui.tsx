@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native';
+import { useI18n } from '../i18n';
 import { useTheme } from '../theme';
 
 export function Button({ title, onPress, disabled, busy, kind = 'primary', style }: {
@@ -34,12 +35,13 @@ export function Line({ label, value, strong }: { label: string; value: string; s
   );
 }
 
-export function Message({ text, onRetry }: { text: string; onRetry?: () => void }) {
+export function Message({ text, onRetry, retryLabel }: { text: string; onRetry?: () => void; retryLabel?: string }) {
   const t = useTheme();
+  const { t: s } = useI18n();
   return (
     <View style={styles.center}>
       <Text style={{ color: t.ink, textAlign: 'center', marginBottom: 12 }}>{text}</Text>
-      {onRetry && <Button title="Try again" onPress={onRetry} />}
+      {onRetry && <Button title={retryLabel ?? s.tryAgain} onPress={onRetry} />}
     </View>
   );
 }

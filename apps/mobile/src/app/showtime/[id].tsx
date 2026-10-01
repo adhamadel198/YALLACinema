@@ -1,11 +1,12 @@
-import { router, Stack, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { api, ApiError } from '../../api/client';
 import type { Arrangement, SeatGroup } from '../../api/types';
 import { useRequest } from '../../api/useRequest';
 import { Button, Line, Message, Panel } from '../../components/ui';
-import { egp, showDate } from '../../format';
+import { showDate } from '../../format';
+import { useI18n } from '../../i18n';
 import { describeSeats } from '../../seats';
 import { useTheme } from '../../theme';
 
@@ -13,11 +14,12 @@ const MAX_CHOICES = 8;
 
 /** Seat map: highlights the best matching group and lets the customer pick another qualifying one (BRD 7.1). */
 export default function SeatScreen() {
-  const t = useTheme();
+  const theme = useTheme();
+  const { t, lang, rtl } = useI18n();
   const params = useLocalSearchParams<{ id: string; count?: string; arrangement?: Arrangement }>();
   const count = Math.max(1, Number(params.count ?? 2));
   const arrangement = params.arrangement ?? 'either';
-  const show = useRequest(() => api.showtime(params.id), [params.id]);
+  const show = useRequest(() => api.showtime(params.id), [params.id, lang]);
   const map = useRequest(() => api.seats(params.id, count, arrangement), [params.id, count, arrangement]);
   const [chosen, setChosen] = useState<SeatGroup | null>(null);
   const [busy, setBusy] = useState(false);
@@ -44,30 +46,30 @@ export default function SeatScreen() {
     } catch (e) {
       // Someone else took a seat between viewing and holding: refresh and show what is still available.
       if (e instanceof ApiError && e.status === 409) {
-        setNotice('Those seats were just taken. The map has been refreshed with what is still available.');
+        setNotice(t.seatsJustTaken);
         map.reload();
-      } else setNotice((e as Error).message);
+      } else setNotice(t.genericError);
     } finally {
       setBusy(false);
     }
   }
 
-  if (map.error) return <Message text={`Couldn’t load seats: ${map.error}`} onRetry={map.reload} />;
-  if (!map.data || !show.data) return <ActivityIndicator style={{ flex: 1 }} color={t.accent} />;
+  if (map.error || show.error) return <Message text={t.loadFailed} onRetry={() => { map.reload(); show.reload(); }} />;
+  if (!map.data || !show.data) return <ActivityIndicator style={{ flex: 1 }} color={theme.accent} />;
   const { rows, cols } = map.data;
 
   return (
     <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
-      <Stack.Screen options={{ title: 'Choose seats' }} />
-      <Text style={[styles.h1, { color: t.ink }]}>{show.data.movie.title}</Text>
-      <Text style={{ color: t.muted }}>{show.data.cinema.name} · {showDate(show.data.startsAt)}</Text>
+      <Text style={[styles.h1, { color: theme.ink }]}>{show.data.movie.title}</Text>
+      <Text style={{ color: theme.muted }}>{show.data.cinema.name} · {showDate(show.data.startsAt, t)}</Text>
 
-      <View style={[styles.screen, { backgroundColor: t.accent }]} />
-      <Text style={[styles.screenLabel, { color: t.muted }]}>SCREEN</Text>
-      <View style={{ gap: 5 }} accessibilityLabel="Seat map">
+      <View style={[styles.screen, { backgroundColor: theme.accent }]} />
+      <Text style={[styles.screenLabel, { color: theme.muted }, rtl && { letterSpacing: 0 }]}>{t.screen}</Text>
+      {/* The hall keeps its physical layout in both languages: seat 1 is always on the left facing the screen. */}
+      <View style={{ gap: 5, direction: 'ltr' }} accessibilityLabel={t.seatMap}>
         {Array.from({ length: rows }, (_, r) => (
           <View key={r} style={styles.seatRow}>
-            <Text style={[styles.rowLabel, { color: t.muted }]}>{String.fromCharCode(65 + r)}</Text>
+            <Text style={[styles.rowLabel, { color: theme.muted }]}>{String.fromCharCode(65 + r)}</Text>
             {Array.from({ length: cols }, (_, c) => {
               const id = String.fromCharCode(65 + r) + (c + 1);
               const taken = unavailable.has(id);
@@ -76,15 +78,15 @@ export default function SeatScreen() {
               return (
                 <Pressable
                   key={id}
-                  accessibilityLabel={`Seat ${id}${taken ? ', unavailable' : on ? ', selected' : ''}`}
+                  accessibilityLabel={t.seatLabel(id, taken ? 'taken' : on ? 'selected' : '')}
                   disabled={taken || !match}
                   onPress={() => setChosen(map.data!.groups.find((g) => g.seats.includes(id)) ?? null)}
                   style={[
                     styles.seat,
-                    { borderColor: t.line },
-                    taken && { backgroundColor: t.muted, borderColor: t.muted, opacity: 0.3 },
-                    match && { borderColor: t.accent },
-                    on && { backgroundColor: t.accent, borderColor: t.accent },
+                    { borderColor: theme.line },
+                    taken && { backgroundColor: theme.muted, borderColor: theme.muted, opacity: 0.3 },
+                    match && { borderColor: theme.accent },
+                    on && { backgroundColor: theme.accent, borderColor: theme.accent },
                   ]}
                 />
               );
@@ -93,25 +95,25 @@ export default function SeatScreen() {
         ))}
       </View>
       <View style={styles.legend}>
-        <Legend color={t.accent} filled label="Your seats" />
-        <Legend color={t.accent} label="Also matches" />
-        <Legend color={t.line} label="Free" />
-        <Legend color={t.muted} filled label="Taken" />
+        <Legend color={theme.accent} filled label={t.yourSeats} />
+        <Legend color={theme.accent} label={t.alsoMatches} />
+        <Legend color={theme.line} label={t.free} />
+        <Legend color={theme.muted} filled label={t.taken} />
       </View>
 
       {map.data.groups.length === 0 ? (
-        <Message text={`No group of ${count} seats is left at this showtime. Go back to pick another time.`} />
+        <Message text={t.noGroupsLeft(count)} />
       ) : (
         <>
-          <Text style={[styles.h2, { color: t.ink }]}>Matching seats</Text>
+          <Text style={[styles.h2, { color: theme.ink }]}>{t.matchingSeats}</Text>
           <View style={styles.choices}>
             {choices.map((g, i) => {
               const on = chosen?.seats.join() === g.seats.join();
               return (
                 <Pressable key={g.seats.join()} onPress={() => setChosen(g)}
-                  style={[styles.chip, { borderColor: on ? t.accent : t.line, backgroundColor: on ? t.accent : 'transparent' }]}>
-                  <Text style={{ color: on ? t.accentInk : t.ink, fontWeight: '600' }}>
-                    {i === 0 ? 'Best · ' : ''}{describeSeats(g.seats)}{g.type === 'separated' ? ` (${g.pattern.join('+')})` : ''}
+                  style={[styles.chip, { borderColor: on ? theme.accent : theme.line, backgroundColor: on ? theme.accent : 'transparent' }]}>
+                  <Text style={{ color: on ? theme.accentInk : theme.ink, fontWeight: '600' }}>
+                    {i === 0 ? `${t.best} · ` : ''}{describeSeats(g.seats)}{g.type === 'separated' ? ` (${g.pattern.join('+')})` : ''}
                   </Text>
                 </Pressable>
               );
@@ -119,13 +121,13 @@ export default function SeatScreen() {
           </View>
           {chosen && (
             <Panel style={{ marginTop: 16 }}>
-              <Line label={`Tickets ${chosen.seats.length} × ${egp(show.data.price)}`} value={egp(chosen.seats.length * show.data.price)} />
-              <Line label="Platform fee · 5 EGP per ticket" value={egp(chosen.seats.length * 5)} />
-              <Line label="Total" value={egp(chosen.seats.length * (show.data.price + 5))} strong />
+              <Line label={t.ticketsLine(chosen.seats.length, t.egp(show.data.price))} value={t.egp(chosen.seats.length * show.data.price)} />
+              <Line label={t.platformFee} value={t.egp(chosen.seats.length * 5)} />
+              <Line label={t.total} value={t.egp(chosen.seats.length * (show.data.price + 5))} strong />
             </Panel>
           )}
-          {notice && <Text style={{ color: t.accent, marginTop: 12 }}>{notice}</Text>}
-          <Button title="Hold these seats" onPress={continueToCheckout} busy={busy} disabled={!chosen} style={{ marginTop: 16 }} />
+          {notice && <Text style={{ color: theme.accent, marginTop: 12 }}>{notice}</Text>}
+          <Button title={t.holdSeats} onPress={continueToCheckout} busy={busy} disabled={!chosen} style={{ marginTop: 16 }} />
         </>
       )}
     </ScrollView>
@@ -133,11 +135,11 @@ export default function SeatScreen() {
 }
 
 function Legend({ color, filled, label }: { color: string; filled?: boolean; label: string }) {
-  const t = useTheme();
+  const theme = useTheme();
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
       <View style={[styles.legendSwatch, { borderColor: color }, filled && { backgroundColor: color }]} />
-      <Text style={{ color: t.muted, fontSize: 12 }}>{label}</Text>
+      <Text style={{ color: theme.muted, fontSize: 12 }}>{label}</Text>
     </View>
   );
 }

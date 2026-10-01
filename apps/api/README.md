@@ -10,7 +10,7 @@ npm test           # domain + HTTP tests (node:test)
 npm run typecheck
 ```
 
-`PORT` overrides the port. The server listens on `0.0.0.0` so a phone on the same Wi-Fi can reach it.
+`PORT` overrides the port. Send `Accept-Language: ar` to get movie and cinema listings in Arabic (`src/data/i18n.ts`). The server listens on `0.0.0.0` so a phone on the same Wi-Fi can reach it.
 
 ## Layout
 
