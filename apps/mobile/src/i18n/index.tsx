@@ -48,7 +48,12 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     AsyncStorage.getItem(KEY)
       .catch(() => null)
-      .then((saved) => setLangState(saved === 'ar' || saved === 'en' ? saved : deviceLang()));
+      .then((saved) => {
+        const initial = saved === 'ar' || saved === 'en' ? saved : deviceLang();
+        // Before the first render, so the screens' first API calls already ask for this language.
+        setApiLanguage(initial);
+        setLangState(initial);
+      });
   }, []);
 
   useEffect(() => {

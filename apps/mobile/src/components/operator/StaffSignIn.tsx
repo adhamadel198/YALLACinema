@@ -54,7 +54,10 @@ export function StaffSignIn() {
       {demo.data ? (
         <Panel style={{ marginTop: 16 }}>
           <Text style={[styles.h2, { color: theme.ink }]}>{t.op.demoTitle}</Text>
-          <Text style={{ color: theme.muted, marginBottom: 8, lineHeight: 20 }}>{t.op.demoBody(demo.data.password)}</Text>
+          <Text style={{ color: theme.muted, lineHeight: 20 }}>{t.op.demoBody}</Text>
+          <Text style={{ color: theme.ink, marginTop: 6, marginBottom: 8 }}>
+            {t.op.password}: <Text style={{ fontWeight: '800' }}>{demo.data.password}</Text>
+          </Text>
           {demo.data.accounts.map((a, i) => (
             <Pressable key={a.email} accessibilityRole="button" accessibilityLabel={`${a.cinemaName}, ${a.email}`}
               onPress={() => { setEmail(a.email); setPassword(demo.data!.password); setError(undefined); }}

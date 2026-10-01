@@ -14,7 +14,7 @@ export function ShowChangeNotice({ change }: { change?: ShowChange | null }) {
     <View accessibilityRole="alert" style={[styles.box, { borderColor: theme.accent, backgroundColor: theme.panel }]}>
       <Text style={[styles.title, { color: theme.accent }]}>{cancelled ? t.op.noticeCancelledTitle : t.op.noticeChangedTitle}</Text>
       {change.kind === 'changed' && change.changed.includes('time') ? <Line label={t.op.newTime} value={change.localTime} strong /> : null}
-      {change.kind === 'changed' && change.changed.includes('format') ? <Line label={t.op.newFormat} value={change.format} strong /> : null}
+      {change.kind === 'changed' && change.changed.includes('format') ? <Line label={t.op.newFormat} value={t.op.formatName(change.format)} strong /> : null}
       <Text style={{ color: theme.ink, marginTop: 4, lineHeight: 20 }}>{cancelled ? t.op.noticeCancelledBody : t.op.noticeChangedBody}</Text>
     </View>
   );

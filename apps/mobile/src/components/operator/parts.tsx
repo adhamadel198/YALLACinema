@@ -24,6 +24,13 @@ export function cairoClock(iso: string) {
   }
 }
 
+/**
+ * Joins parts with " · ". In Arabic each part starts with a right-to-left mark, so parts keep their order and
+ * a Latin word (a format like "Dolby Atmos", a name, a reference) does not pull the number after it to its side.
+ */
+export const joinLine = (rtl: boolean, ...parts: (string | null | undefined | false)[]) =>
+  parts.filter(Boolean).map((p) => (rtl ? `\u200F${p}` : p)).join(' · ');
+
 /** "2 valid · 1 used" */
 export function ticketSummary(tickets: StaffBooking['tickets'], t: Strings) {
   const counts = new Map<string, number>();
@@ -99,8 +106,8 @@ export function BookingsTable({ bookings, wide }: { bookings: StaffBooking[]; wi
           <Text key={h} style={[styles.cell, styles.headCell, { flex: [1.1, 1.4, 1.2, 1.3, 0.8][i], color: theme.muted }]}>{h}</Text>
         ))}
       </View>
-      {bookings.map((b) => (
-        <View key={b.reference} style={[styles.tableRow, { borderColor: theme.line }]}>
+      {bookings.map((b, i) => (
+        <View key={b.reference} style={[styles.tableRow, { borderColor: theme.line }, i === bookings.length - 1 && { borderBottomWidth: 0 }]}>
           {cell(b.reference, 1.1, true)}
           {cell(b.holderName, 1.4)}
           {cell(describeSeats(b.seats), 1.2)}

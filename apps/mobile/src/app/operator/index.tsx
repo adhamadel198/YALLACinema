@@ -7,7 +7,7 @@ import { operatorApi, type StaffBooking, type StaffShow } from '../../api/operat
 import { useRequest } from '../../api/useRequest';
 import { useAuth } from '../../auth';
 import { Chips } from '../../components/Chips';
-import { Badge, BookingRow, BookingsTable, dayLabel, Field, Kicker, Page, Stat, useWide } from '../../components/operator/parts';
+import { Badge, BookingRow, BookingsTable, dayLabel, Field, joinLine, Kicker, Page, Stat, useWide } from '../../components/operator/parts';
 import { StaffGate } from '../../components/operator/StaffGate';
 import { Button, Message, Panel } from '../../components/ui';
 import { useI18n } from '../../i18n';
@@ -99,7 +99,10 @@ function Dashboard({ account }: { account: Account }) {
 /** One show: its listing as customers see it now, its bookings and totals. */
 function ShowCard({ show: s, wide }: { show: StaffShow; wide: boolean }) {
   const theme = useTheme();
-  const { t } = useI18n();
+  const { t, rtl } = useI18n();
+  const action = s.editable
+    ? <Button title={s.cancelled ? t.op.viewShow : t.op.correctListing} kind="secondary" onPress={() => openShow(s.id)} style={styles.small} />
+    : null;
   return (
     <Panel style={{ marginBottom: 12 }}>
       <View style={styles.showHead}>
@@ -110,22 +113,23 @@ function ShowCard({ show: s, wide }: { show: StaffShow; wide: boolean }) {
             {s.cancelled ? <Badge label={t.op.cancelled} tone="alert" /> : s.corrected ? <Badge label={t.op.corrected} tone="note" /> : null}
           </View>
           <Text style={{ color: theme.muted, marginTop: 2 }}>
-            {[t.op.formatName(s.format), t.egp(s.price), s.seatsLeft != null ? t.op.seatsLeft(s.seatsLeft) : null].filter(Boolean).join(' · ')}
+            {joinLine(rtl, t.op.formatName(s.format), t.egp(s.price), s.seatsLeft != null && t.op.seatsLeft(s.seatsLeft))}
           </Text>
           {s.corrected && s.listed ? (
             <Text style={{ color: theme.muted, fontSize: 12, marginTop: 2 }}>{t.op.listedAs(s.listed.localTime, t.op.formatName(s.listed.format), t.egp(s.listed.price))}</Text>
           ) : null}
         </View>
+        {wide ? action : null}
       </View>
       <View style={{ marginTop: 10 }}>
         <BookingsTable bookings={s.bookings} wide={wide} />
       </View>
-      {s.bookings.length || s.editable ? (
+      {s.bookings.length || (action && !wide) ? (
         <View style={[styles.showFoot, { borderColor: theme.line }]}>
           <Text style={{ color: theme.muted, fontSize: 13, flex: 1 }}>
             {s.bookings.length ? t.op.showTotals(s.totals.bookings, s.totals.tickets, t.egp(s.totals.ticketRevenue)) : ''}
           </Text>
-          {s.editable ? <Button title={s.cancelled ? t.op.viewShow : t.op.correctListing} kind="secondary" onPress={() => openShow(s.id)} style={styles.small} /> : null}
+          {wide ? null : action}
         </View>
       ) : null}
     </Panel>
@@ -183,6 +187,7 @@ function FoundBooking({ booking: b, show, onClear, t }: {
   booking: StaffBooking; show: Omit<StaffShow, 'bookings' | 'totals' | 'seatsLeft'>; onClear: () => void; t: Strings;
 }) {
   const theme = useTheme();
+  const { rtl } = useI18n();
   const moved = b.sold.startsAt !== show.startsAt || b.sold.format !== show.format;
   return (
     <View style={[styles.found, { borderColor: theme.line }]}>
@@ -191,7 +196,7 @@ function FoundBooking({ booking: b, show, onClear, t }: {
         {show.cancelled ? <Badge label={t.op.cancelled} tone="alert" /> : null}
       </View>
       <Text style={{ color: theme.muted, marginBottom: 4 }}>
-        {dayLabel(show.startsAt.slice(0, 10), t)} · {show.localTime} · {t.op.formatName(show.format)}
+        {joinLine(rtl, dayLabel(show.startsAt.slice(0, 10), t), show.localTime, t.op.formatName(show.format))}
       </Text>
       {moved ? <Text style={{ color: theme.accent, fontSize: 12, marginBottom: 4 }}>{t.op.soldAs(b.sold.startsAt.slice(11, 16), t.op.formatName(b.sold.format))}</Text> : null}
       <BookingRow booking={b} last />

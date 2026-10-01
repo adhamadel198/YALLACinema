@@ -6,7 +6,7 @@ import { ApiError } from '../../../api/client';
 import { operatorApi, type ChangeRecord, type Correction, type StaffShowDetail } from '../../../api/operator';
 import { useRequest } from '../../../api/useRequest';
 import { Chips } from '../../../components/Chips';
-import { Badge, BookingsTable, cairoClock, dayLabel, Field, Kicker, Page, useWide } from '../../../components/operator/parts';
+import { Badge, BookingsTable, cairoClock, dayLabel, Field, joinLine, Kicker, Page, useWide } from '../../../components/operator/parts';
 import { StaffGate } from '../../../components/operator/StaffGate';
 import { Button, Message, Panel } from '../../../components/ui';
 import { useI18n } from '../../../i18n';
@@ -81,7 +81,7 @@ function CorrectShow() {
 
 function Summary({ detail: { show: s } }: { detail: StaffShowDetail }) {
   const theme = useTheme();
-  const { t } = useI18n();
+  const { t, rtl } = useI18n();
   return (
     <Panel style={{ marginBottom: 16 }}>
       <Kicker>{`${dayLabel(s.startsAt.slice(0, 10), t)} · ${s.localTime}`}</Kicker>
@@ -90,7 +90,7 @@ function Summary({ detail: { show: s } }: { detail: StaffShowDetail }) {
         {s.cancelled ? <Badge label={t.op.cancelled} tone="alert" /> : s.corrected ? <Badge label={t.op.corrected} tone="note" /> : null}
       </View>
       <Text style={{ color: theme.muted }}>
-        {[t.op.formatName(s.format), t.egp(s.price), s.seatsLeft != null ? t.op.seatsLeft(s.seatsLeft) : null].filter(Boolean).join(' · ')}
+        {joinLine(rtl, t.op.formatName(s.format), t.egp(s.price), s.seatsLeft != null && t.op.seatsLeft(s.seatsLeft))}
       </Text>
       {s.corrected && s.listed ? (
         <Text style={{ color: theme.muted, fontSize: 12, marginTop: 4 }}>{t.op.listedAs(s.listed.localTime, t.op.formatName(s.listed.format), t.egp(s.listed.price))}</Text>
@@ -212,7 +212,7 @@ function Editor({ detail: { show: s, formats, maxPrice }, onSaved }: { detail: S
 /** Every change to the show, newest first, with the bookings it affected (BRD 9). */
 function History({ changes }: { changes: ChangeRecord[] }) {
   const theme = useTheme();
-  const { t } = useI18n();
+  const { t, rtl } = useI18n();
   const anyAffected = changes.some((c) => c.affected.length > 0);
   return (
     <Panel>
@@ -222,7 +222,7 @@ function History({ changes }: { changes: ChangeRecord[] }) {
         <View key={c.at + i} style={[styles.change, { borderColor: theme.line }, i === changes.length - 1 && { borderBottomWidth: 0 }]}>
           <View style={styles.titleRow}>
             <Badge label={t.op.changeKind[c.kind] ?? c.kind} tone={c.kind === 'cancelled' ? 'alert' : 'note'} />
-            <Text style={{ color: theme.muted, fontSize: 13 }}>{[cairoClock(c.at), c.by].filter(Boolean).join(' · ')}</Text>
+            <Text style={{ color: theme.muted, fontSize: 13 }}>{joinLine(rtl, cairoClock(c.at), c.by)}</Text>
           </View>
           {describeChange(c, t).map((line) => <Text key={line} style={{ color: theme.ink, marginTop: 4 }}>{line}</Text>)}
           {c.affected.length ? (
@@ -230,7 +230,7 @@ function History({ changes }: { changes: ChangeRecord[] }) {
               <Text style={{ color: theme.ink, fontWeight: '700', fontSize: 13 }}>{t.op.affected(c.affected.length)}</Text>
               {c.affected.map((a) => (
                 <Text key={a.reference} style={{ color: theme.muted, fontSize: 13 }}>
-                  {a.reference} · {a.holderName} · {a.notifiedAt ? cairoClock(a.notifiedAt) : t.op.notNotified}
+                  {joinLine(rtl, a.reference, a.holderName, a.notifiedAt ? cairoClock(a.notifiedAt) : t.op.notNotified)}
                 </Text>
               ))}
             </View>

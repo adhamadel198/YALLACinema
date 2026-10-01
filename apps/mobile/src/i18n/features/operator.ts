@@ -15,7 +15,7 @@ export const en = {
     wrongPassword: 'Wrong email or password.',
     tooManyTries: 'Too many sign-in attempts. Wait a few minutes and try again.',
     demoTitle: 'Demo staff accounts',
-    demoBody: (password: string) => `This preview has one staff account per cinema. Tap one to fill it in. The password is ${password}`,
+    demoBody: 'This preview has one staff account per cinema. Tap one to fill it in.',
     customerTitle: 'This portal is for cinema staff',
     customerBody: (name: string, email: string) =>
       `You’re signed in as ${name} (${email}) with a customer account. Sign out to sign in with your cinema’s staff account.`,
@@ -128,7 +128,7 @@ export const ar: typeof en = {
     wrongPassword: 'الإيميل أو كلمة السر غلط.',
     tooManyTries: 'محاولات دخول كتير. استنى كام دقيقة وحاول تاني.',
     demoTitle: 'حسابات موظفين تجريبية',
-    demoBody: (password) => `النسخة دي فيها حساب موظفين لكل سينما. دوس على واحد عشان يتكتب لوحده. كلمة السر هي ${password}`,
+    demoBody: 'النسخة دي فيها حساب موظفين لكل سينما. دوس على واحد عشان يتكتب لوحده.',
     customerTitle: 'البوابة دي لموظفي السينما',
     customerBody: (name, email) => `إنت داخل باسم ${name} (${email}) بحساب عميل. سجّل خروج عشان تدخل بحساب الموظفين بتاع سينماك.`,
     signOut: 'تسجيل الخروج',
