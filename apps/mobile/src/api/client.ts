@@ -72,7 +72,7 @@ export const api = {
   cinemas: () => request<Cinema[]>('/v1/cinemas'),
   showtimes: (id: string, count: number, arrangement: Arrangement, filters: ShowtimeFilters = {}) => {
     const query = new URLSearchParams({ count: String(count), arrangement });
-    for (const [key, value] of Object.entries(filters)) if (value) query.set(key, value);
+    for (const [key, value] of Object.entries(filters)) if (value != null && value !== '') query.set(key, String(value));
     return request<{ results: ShowtimeResult[] }>(`/v1/movies/${enc(id)}/showtimes?${query}`).then((r) => r.results);
   },
   showtime: (id: string) => request<ShowtimeSummary>(`/v1/showtimes/${enc(id)}`),
