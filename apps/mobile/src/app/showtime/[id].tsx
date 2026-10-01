@@ -56,9 +56,11 @@ export default function SeatScreen() {
   const seats = selection?.seats ?? [];
   const picked = useMemo(() => new Set(seats), [seats]);
   const sameSeats = (g: SeatGroup) => g.seats.length === seats.length && g.seats.every((s) => picked.has(s));
+  // Free choice needs only enough free seats, wherever they are.
+  const canBook = !!map.data && map.data.rows * map.data.cols - unavailable.size >= count;
 
   function onSeat(id: string) {
-    if (!selection) return;
+    if (!selection || !canBook) return;
     const { selection: next, full } = tapSeat(selection, id, count);
     setSelection(next);
     setNotice(full ? t.allPicked(count) : undefined);
@@ -92,10 +94,7 @@ export default function SeatScreen() {
   if (!map.data || !show.data || !selection) return <ActivityIndicator style={{ flex: 1 }} color={theme.accent} />;
   const { rows, cols, aisles } = map.data;
   const price = show.data.price;
-  const freeSeats = rows * cols - unavailable.size;
   const pattern = seatPattern(seats, aisles);
-  // Free choice needs only enough free seats, wherever they are.
-  const canBook = freeSeats >= count;
 
   return (
     <View style={{ flex: 1 }}>
@@ -108,7 +107,7 @@ export default function SeatScreen() {
           </Text>
         )}
 
-        <SeatGrid rows={rows} cols={cols} aisles={aisles} unavailable={unavailable} picked={picked} matched={matchedSeats} onSeat={onSeat} />
+        <SeatGrid rows={rows} cols={cols} aisles={aisles} unavailable={unavailable} picked={canBook ? picked : new Set()} matched={matchedSeats} onSeat={onSeat} />
         <SeatLegend />
 
         {!canBook ? (
