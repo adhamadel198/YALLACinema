@@ -70,4 +70,4 @@ A unique key on `(showtime, seat)` in `held_seats` and `tickets` is what guarant
 
 ## Abuse limits
 
-There is no sign-in for booking, so the app sends a random per-install id in `X-Client-Id` (the IP address is used when it is missing). Each id gets one active hold at a time, and holds and bookings are rate limited per id. The BRD rules out a platform cap on seats per booking, so a single hold can still be large; cinema rules decide the maximum. Behind a load balancer, set `TRUST_PROXY=1` so limits see the real client address.
+There is no sign-in for booking, so the app sends a random per-install id in `X-Client-Id` (the IP address is used when it is missing). Each id gets one active hold at a time, and holds and bookings are rate limited per id. A booking (and so a hold) has at most 10 seats (`src/domain/limits.ts`); requests above that get `400`. Behind a load balancer, set `TRUST_PROXY=1` so limits see the real client address.

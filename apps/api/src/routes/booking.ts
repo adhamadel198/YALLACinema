@@ -3,6 +3,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Store } from '../data/store.ts';
 import { bookingView, showtimeSummary, snapshotOf } from '../data/views.ts';
 import { langOf } from '../data/i18n.ts';
+import { MAX_SEATS_PER_BOOKING } from '../domain/limits.ts';
 import { bookingTotal } from '../domain/pricing.ts';
 import type { Booking, Guest, PaymentMethod } from '../domain/types.ts';
 import type { CinemaIntegration } from '../integrations/cinema.ts';
@@ -37,7 +38,7 @@ export async function bookingRoutes(app: FastifyInstance, { store, payments, cin
         type: 'object', required: ['showtimeId', 'seats'],
         properties: {
           showtimeId: { type: 'string' },
-          seats: { type: 'array', minItems: 1, uniqueItems: true, items: { type: 'string', pattern: '^[A-Z]\\d{1,2}$' } },
+          seats: { type: 'array', minItems: 1, maxItems: MAX_SEATS_PER_BOOKING, uniqueItems: true, items: { type: 'string', pattern: '^[A-Z]\\d{1,2}$' } },
         },
       },
     },

@@ -2,7 +2,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { api, ApiError } from '../../api/client';
-import type { Arrangement, SeatGroup } from '../../api/types';
+import { MAX_SEATS_PER_BOOKING, type Arrangement, type SeatGroup } from '../../api/types';
 import { useRequest } from '../../api/useRequest';
 import { Button, Line, Message, Panel } from '../../components/ui';
 import { showDate } from '../../format';
@@ -17,7 +17,8 @@ export default function SeatScreen() {
   const theme = useTheme();
   const { t, lang, rtl } = useI18n();
   const params = useLocalSearchParams<{ id: string; count?: string; arrangement?: Arrangement }>();
-  const count = Math.max(1, Number(params.count ?? 2));
+  // The count arrives in the URL, so keep it to a whole number the API accepts.
+  const count = Math.min(MAX_SEATS_PER_BOOKING, Math.max(1, Math.floor(Number(params.count)) || 2));
   const arrangement = params.arrangement ?? 'either';
   const show = useRequest(() => api.showtime(params.id), [params.id, lang]);
   const map = useRequest(() => api.seats(params.id, count, arrangement), [params.id, count, arrangement]);

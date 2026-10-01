@@ -2,7 +2,7 @@
 
 ## Business Requirements Document
 
-**Version:** 0.1 — Initial discovery draft  
+**Version:** 0.2 — Discovery draft with booking size limit  
 **Status:** Draft; business and operational decisions remain open  
 **Market:** Egypt  
 **Working product name:** TBD
@@ -40,7 +40,7 @@ Numerical targets and measurement methods are open decisions.
 - Search by requested ticket quantity and seat arrangement; return only showtimes with live availability that meets the request.
 - Live showtimes, seat availability, ticket prices, seat reservation, and booking confirmation through cinema integrations.
 - Guest and account-based booking.
-- Seat selection and multi-ticket orders, limited only by the seats available and cinema rules.
+- Seat selection and multi-ticket orders of up to 10 seats, subject to the seats available and cinema rules.
 - Online payment by bank card and supported local digital wallets.
 - Cinema operator portal to view bookings and correct listings.
 - Ticket resale marketplace, with the rules captured in section 11.
@@ -110,7 +110,7 @@ A booking is considered successful when payment is captured and the cinema confi
 
 - Customers shall be able to select seats and book multiple seats in one order, subject to cinema availability and rules.
 - The platform shall hold the exact highlighted seats selected by the customer during checkout, subject to the cinema integration's hold capability and timeout rules.
-- The platform shall not impose an additional fixed booking quantity limit; cinema availability and rules determine the maximum.
+- A booking may include at most 10 seats. Cinema availability and rules may set a lower maximum.
 - The platform shall recheck availability and reserve seats before payment.
 - Seat holds shall be released if payment fails. Hold duration and timeout handling are open technical decisions.
 - The platform shall only offer ticket sales for cinemas that provide live availability and booking confirmation through an integration.
@@ -281,3 +281,4 @@ The initial product must support Arabic and English, protect customer contact an
 | Version | Date | Notes |
 |---|---|---|
 | 0.1 | 2026-09-25 | Initial BRD draft from discovery answers; unresolved items captured for follow-up. |
+| 0.2 | 2026-10-01 | Bookings capped at 10 seats (sections 4.1 and 7.2). |

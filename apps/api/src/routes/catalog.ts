@@ -3,6 +3,7 @@ import type { Store } from '../data/store.ts';
 import { areaCentres } from '../data/seed.ts';
 import { showtimeSummary, snapshotOf } from '../data/views.ts';
 import { langOf, localizeCinema, localizeFormat, localizeMovie } from '../data/i18n.ts';
+import { MAX_SEATS_PER_BOOKING } from '../domain/limits.ts';
 import { bestGroup, findSeatGroups } from '../domain/seats.ts';
 import type { Area, Arrangement } from '../domain/types.ts';
 
@@ -52,7 +53,7 @@ export async function catalogRoutes(app: FastifyInstance, { store }: { store: St
       querystring: {
         type: 'object',
         properties: {
-          count: { type: 'integer', minimum: 1, default: 2 },
+          count: { type: 'integer', minimum: 1, maximum: MAX_SEATS_PER_BOOKING, default: 2 },
           arrangement: { type: 'string', enum: arrangements, default: 'either' },
           area: { type: 'string', enum: areas },
           cinemaId: { type: 'string' },
@@ -112,7 +113,7 @@ export async function catalogRoutes(app: FastifyInstance, { store }: { store: St
       querystring: {
         type: 'object',
         properties: {
-          count: { type: 'integer', minimum: 1, default: 2 },
+          count: { type: 'integer', minimum: 1, maximum: MAX_SEATS_PER_BOOKING, default: 2 },
           arrangement: { type: 'string', enum: arrangements, default: 'either' },
         },
       },

@@ -19,6 +19,7 @@ const en = {
 
   howManySeats: 'How many seats do you need?',
   fewerSeats: 'Fewer seats',
+  maxSeats: (n: number) => `Up to ${n} seats per booking.`,
   moreSeats: 'More seats',
   either: 'Either',
   together: 'Together',
@@ -131,6 +132,7 @@ const ar: Strings = {
 
   howManySeats: 'محتاج كام كرسي؟',
   fewerSeats: 'كراسي أقل',
+  maxSeats: (n) => `أقصى حد ${n} كراسي في الحجز الواحد.`,
   moreSeats: 'كراسي أكتر',
   either: 'أي ترتيب',
   together: 'جنب بعض',

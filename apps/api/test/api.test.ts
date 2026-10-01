@@ -23,8 +23,14 @@ test('showtime search returns only showtimes that fit the request, sorted by dis
   assert.ok(results.length > 0);
   assert.ok(results.every((r: any) => r.matches.connected > 0));
   assert.equal(results[0].cinema.area, 'Maadi');
-  const huge = await app.inject('/v1/movies/the-last-light/showtimes?count=13&arrangement=connected');
-  assert.deepEqual(huge.json().results, []);
+  // Ten seats side by side fit fewer showtimes than two: none is offered as a near match.
+  const ten = (await app.inject('/v1/movies/the-last-light/showtimes?count=10&arrangement=connected')).json().results;
+  const two = (await app.inject('/v1/movies/the-last-light/showtimes?count=2&arrangement=connected')).json().results;
+  assert.ok(ten.length < two.length);
+  for (const r of ten) {
+    const map = (await app.inject(`/v1/showtimes/${r.showtimeId}/seats?count=10&arrangement=connected`)).json();
+    assert.ok(map.groups.length > 0 && map.groups.every((g: { seats: string[] }) => g.seats.length === 10));
+  }
 });
 
 const as = (client: string) => ({ 'x-client-id': client });
@@ -183,4 +189,18 @@ test('two customers racing for the same seats: exactly one gets them', async () 
   const codes = await Promise.all(['racer-one', 'racer-two', 'racer-three'].map((c) =>
     app.inject({ method: 'POST', url: '/v1/holds', payload, headers: as(c) }).then((r) => r.statusCode)));
   assert.deepEqual(codes.sort(), [201, 409, 409]);
+});
+
+test('a booking is capped at 10 seats', async () => {
+  const app = await buildApp();
+  const { results } = (await app.inject('/v1/movies/the-last-light/showtimes?count=10&arrangement=either')).json();
+  assert.ok(results.length > 0);
+  assert.equal((await app.inject('/v1/movies/the-last-light/showtimes?count=11')).statusCode, 400);
+  assert.equal((await app.inject(`/v1/showtimes/${results[0].showtimeId}/seats?count=11`)).statusCode, 400);
+
+  const { groups } = (await app.inject(`/v1/showtimes/${results[0].showtimeId}/seats?count=1&arrangement=connected`)).json();
+  const free = groups.map((g: { seats: string[] }) => g.seats[0]);
+  const hold = (seats: string[]) => app.inject({ method: 'POST', url: '/v1/holds', payload: { showtimeId: results[0].showtimeId, seats }, headers: as('big-group') });
+  assert.equal((await hold(free.slice(0, 11))).statusCode, 400);
+  assert.equal((await hold(free.slice(0, 10))).statusCode, 201);
 });

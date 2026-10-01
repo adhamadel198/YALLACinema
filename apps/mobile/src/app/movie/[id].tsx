@@ -2,7 +2,7 @@ import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { api } from '../../api/client';
-import type { Area, Arrangement, ShowtimeFilters } from '../../api/types';
+import { MAX_SEATS_PER_BOOKING, type Area, type Arrangement, type ShowtimeFilters } from '../../api/types';
 import { useRequest } from '../../api/useRequest';
 import { Chips } from '../../components/Chips';
 import { Poster } from '../../components/Poster';
@@ -52,14 +52,19 @@ export default function MovieScreen() {
 
       <Text style={[styles.h2, { color: theme.ink }]}>{t.howManySeats}</Text>
       <View style={styles.row}>
-        <Pressable accessibilityLabel={t.fewerSeats} onPress={() => setCount((c) => Math.max(1, c - 1))} style={[styles.step, { borderColor: theme.line }]}>
+        <Pressable accessibilityLabel={t.fewerSeats} disabled={count <= 1}
+          onPress={() => setCount((c) => Math.max(1, c - 1))}
+          style={[styles.step, { borderColor: theme.line }, count <= 1 && { opacity: 0.35 }]}>
           <Text style={{ color: theme.ink, fontSize: 18 }}>−</Text>
         </Pressable>
         <Text style={[styles.count, { color: theme.ink }]}>{count}</Text>
-        <Pressable accessibilityLabel={t.moreSeats} onPress={() => setCount((c) => c + 1)} style={[styles.step, { borderColor: theme.line }]}>
+        <Pressable accessibilityLabel={t.moreSeats} disabled={count >= MAX_SEATS_PER_BOOKING}
+          onPress={() => setCount((c) => Math.min(MAX_SEATS_PER_BOOKING, c + 1))}
+          style={[styles.step, { borderColor: theme.line }, count >= MAX_SEATS_PER_BOOKING && { opacity: 0.35 }]}>
           <Text style={{ color: theme.ink, fontSize: 18 }}>+</Text>
         </Pressable>
       </View>
+      {count >= MAX_SEATS_PER_BOOKING && <Text style={{ color: theme.muted, fontSize: 12, marginBottom: 10 }}>{t.maxSeats(MAX_SEATS_PER_BOOKING)}</Text>}
       <View style={styles.row}>
         {arrangements.map((a) => {
           const on = a.value === arrangement;

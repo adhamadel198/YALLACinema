@@ -1,5 +1,8 @@
 // Mirrors the response shapes in apps/api/src. Move to a shared package once more screens use them.
 export type Arrangement = 'connected' | 'separated' | 'either';
+
+/** Most seats in one booking; the API enforces the same limit (apps/api/src/domain/limits.ts). */
+export const MAX_SEATS_PER_BOOKING = 10;
 export type Area = 'Downtown Cairo' | 'Maadi' | 'New Cairo' | '6th of October';
 
 export interface Cinema {
