@@ -17,5 +17,6 @@ export const authApi = {
   signUp: (details: SignUp) => request<SignedIn>('/v1/auth/sign-up', { method: 'POST', body: details }),
   signIn: (email: string, password: string) => request<SignedIn>('/v1/auth/sign-in', { method: 'POST', body: { email, password } }),
   signOut: () => request<void>('/v1/auth/sign-out', { method: 'POST' }),
-  me: () => request<Account>('/v1/me'),
+  /** `token` checks a saved session before the app sends it with other requests. */
+  me: (token?: string) => request<Account>('/v1/me', { token }),
 };

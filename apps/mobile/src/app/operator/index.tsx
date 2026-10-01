@@ -33,9 +33,8 @@ function Dashboard({ account }: { account: Account }) {
   const { signOut } = useAuth();
   const wide = useWide();
   const [day, setDay] = useState<string>();
+  // A session that expired signs out (AuthProvider), which brings back the sign-in form.
   const data = useRequest(() => operatorApi.day(day).catch((e) => {
-    // A session that expired signs out, which brings back the sign-in form.
-    if (e instanceof ApiError && e.status === 401) signOut();
     throw new Error(e instanceof ApiError && e.status === 403 ? t.op.noCinema : t.loadFailed);
   }), [day, t]);
   // Back from correcting a show: show what changed.

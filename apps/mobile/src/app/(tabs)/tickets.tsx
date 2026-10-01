@@ -21,7 +21,7 @@ import { useTheme } from '../../theme';
 export default function Tickets() {
   const theme = useTheme();
   const { t, lang } = useI18n();
-  const { account, ready, signOut } = useAuth();
+  const { account, ready } = useAuth();
   const bookings = useRequest(async () => {
     if (!ready) return null;
     let mine: Booking[] = [];
@@ -30,9 +30,8 @@ export default function Tickets() {
       try {
         mine = await accountsApi.bookings();
       } catch (e) {
-        // A session the API no longer knows (expired, or the server's data was reset) signs out; this device's tickets still show.
-        if (e instanceof ApiError && e.status === 401) signOut();
-        else accountFailed = true;
+        // A session the API no longer knows signs out (AuthProvider); this device's tickets still show.
+        if (!(e instanceof ApiError && e.status === 401)) accountFailed = true;
       }
     }
     const listed = new Set(mine.map((b) => b.id));

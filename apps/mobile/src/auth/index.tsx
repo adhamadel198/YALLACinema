@@ -1,8 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { claimDeviceBookings } from '../api/accounts';
 import { authApi, type Account, type SignUp } from '../api/auth';
-import { ApiError, setAuthToken } from '../api/client';
+import { ApiError, onSessionExpired, setAuthToken } from '../api/client';
 
 const KEY = 'yalla.session';
 
@@ -21,8 +21,11 @@ const AuthContext = createContext<Auth | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [account, setAccount] = useState<Account | null>(null);
   const [ready, setReady] = useState(false);
+  /** The token in use, so a late 401 from an earlier session can't sign out a newer one. */
+  const current = useRef<string | null>(null);
 
   const start = useCallback(async ({ token, account: signedIn }: { token: string; account: Account }) => {
+    current.current = token;
     setAuthToken(token);
     // Guest bookings made on this device join the account's history. Never blocks signing in.
     await claimDeviceBookings().catch(() => {});
@@ -32,6 +35,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const clear = useCallback(async () => {
+    current.current = null;
     setAuthToken(null);
     setAccount(null);
     await AsyncStorage.removeItem(KEY).catch(() => {});
@@ -42,16 +46,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .catch(() => null)
       .then(async (token) => {
         if (!token) return;
+        current.current = token;
         setAuthToken(token);
         try {
           setAccount(await authApi.me());
         } catch (e) {
-          // An expired session signs out; a network error keeps the token for next time.
-          if (e instanceof ApiError && e.status === 401) await clear();
-          else setAuthToken(token);
+          // An expired session signs out (below); a network error keeps the token for next time.
+          if (!(e instanceof ApiError && e.status === 401)) setAuthToken(token);
         }
       })
       .finally(() => setReady(true));
+  }, []);
+
+  // Any request that gets 401 for this session (it expired, or the server's data was reset) signs out, once,
+  // so every screen falls back to its signed-out state.
+  useEffect(() => {
+    onSessionExpired((token) => {
+      if (token === current.current) clear();
+    });
+    return () => onSessionExpired(undefined);
   }, [clear]);
 
   const value = useMemo<Auth>(() => ({
