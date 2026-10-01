@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useAuth } from '../../auth';
 import { signInHref, signUpHref } from '../../auth/routes';
-import { Button, Line, Panel } from '../../components/ui';
+import { Button, Panel } from '../../components/ui';
 import { useI18n } from '../../i18n';
 import type { Lang } from '../../i18n/strings';
 import { useTheme } from '../../theme';
@@ -79,15 +79,27 @@ function AccountPanel() {
         </View>
         <Text style={[styles.panelTitle, { color: theme.ink, flex: 1, marginBottom: 0 }]} numberOfLines={2}>{account.name}</Text>
       </View>
-      <Line label={t.email} value={account.email} />
-      <Line label={t.mobile} value={account.mobile} />
-      <Button title={t.signOut} kind="secondary" busy={busy} style={{ marginTop: 16 }}
+      <Detail label={t.email} value={account.email} />
+      <Detail label={t.mobile} value={account.mobile} />
+      <Button title={t.signOut} kind="secondary" busy={busy} style={{ marginTop: 14 }}
         onPress={async () => {
           setBusy(true);
           await signOut();
           setBusy(false);
         }} />
     </Panel>
+  );
+}
+
+/** Label above value, so a long email never squeezes the label. Email and mobile always read left to right. */
+function Detail({ label, value }: { label: string; value: string }) {
+  const theme = useTheme();
+  const { rtl } = useI18n();
+  return (
+    <View style={[styles.detail, { borderColor: theme.line }]}>
+      <Text style={{ color: theme.muted, fontSize: 13 }}>{label}</Text>
+      <Text selectable style={[styles.detailValue, { color: theme.ink, textAlign: rtl ? 'right' : 'left' }]}>{value}</Text>
+    </View>
   );
 }
 
@@ -98,6 +110,8 @@ const styles = StyleSheet.create({
   body: { fontSize: 15, lineHeight: 22 },
   who: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 },
   avatar: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
+  detail: { paddingVertical: 10, borderTopWidth: StyleSheet.hairlineWidth },
+  detailValue: { fontSize: 16, fontWeight: '600', marginTop: 2, writingDirection: 'ltr' },
   h2: { fontSize: 18, fontWeight: '800', marginTop: 28, marginBottom: 10 },
   row: { flexDirection: 'row', gap: 8 },
   option: { flex: 1, borderWidth: 1.5, borderRadius: 12, padding: 14, alignItems: 'center' },

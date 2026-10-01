@@ -2,7 +2,7 @@ import { router, useFocusEffect } from 'expo-router';
 import { useCallback } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { accountsApi } from '../../api/accounts';
-import { api } from '../../api/client';
+import { api, ApiError } from '../../api/client';
 import { myBookingIds } from '../../api/myBookings';
 import type { Booking } from '../../api/types';
 import { useRequest } from '../../api/useRequest';
@@ -21,7 +21,7 @@ import { useTheme } from '../../theme';
 export default function Tickets() {
   const theme = useTheme();
   const { t, lang } = useI18n();
-  const { account, ready } = useAuth();
+  const { account, ready, signOut } = useAuth();
   const bookings = useRequest(async () => {
     if (!ready) return null;
     let mine: Booking[] = [];
@@ -29,8 +29,10 @@ export default function Tickets() {
     if (account) {
       try {
         mine = await accountsApi.bookings();
-      } catch {
-        accountFailed = true;
+      } catch (e) {
+        // A session the API no longer knows (expired, or the server's data was reset) signs out; this device's tickets still show.
+        if (e instanceof ApiError && e.status === 401) signOut();
+        else accountFailed = true;
       }
     }
     const listed = new Set(mine.map((b) => b.id));
