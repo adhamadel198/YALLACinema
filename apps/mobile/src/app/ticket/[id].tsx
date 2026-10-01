@@ -1,8 +1,10 @@
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useCallback } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import { api } from '../../api/client';
 import { useRequest } from '../../api/useRequest';
+import { HiddenCode, TicketResale } from '../../components/resale';
 import { Button, Line, Message, Panel } from '../../components/ui';
 import { showDate } from '../../format';
 import { useI18n } from '../../i18n';
@@ -15,6 +17,8 @@ export default function TicketScreen() {
   const { t, lang, rtl } = useI18n();
   const { id } = useLocalSearchParams<{ id: string }>();
   const booking = useRequest(() => api.booking(id), [id, lang]);
+  // Coming back from selling or managing listings shows the tickets' new status.
+  useFocusEffect(useCallback(() => booking.reload(), [booking.reload]));
 
   if (booking.error) return <Message text={t.loadFailed} onRetry={booking.reload} />;
   if (!booking.data) return <ActivityIndicator style={{ flex: 1 }} color={theme.accent} />;
@@ -37,15 +41,18 @@ export default function TicketScreen() {
         <View style={styles.qrs}>
           {b.tickets.map((ticket) => (
             <View key={ticket.id} style={styles.qrItem}>
-              <View style={styles.qrFrame}>
-                <QRCode value={ticket.qr} size={132} />
-              </View>
+              {ticket.status === 'valid' ? (
+                <View style={styles.qrFrame}>
+                  <QRCode value={ticket.qr} size={132} />
+                </View>
+              ) : <HiddenCode status={ticket.status} />}
               <Text style={{ color: theme.ink, fontWeight: '800', marginTop: 6 }}>{t.seat(ticket.seat)}</Text>
             </View>
           ))}
         </View>
         <Text style={{ color: theme.muted, fontSize: 12, textAlign: 'center' }}>{t.showCodes}</Text>
       </Panel>
+      <TicketResale booking={b} />
 
       <Text style={{ color: theme.muted, fontSize: 12, marginVertical: 12 }}>
         {t.emailNote(b.holder.email)} {b.showtime.cinema.cancellationPolicy}

@@ -14,7 +14,7 @@ import type { CinemaIntegration } from '../integrations/cinema.ts';
 import type { PaymentProvider } from '../integrations/payments.ts';
 
 /** Short code printed on the ticket, e.g. YL-K7Q2M9. */
-const bookingReference = () =>
+export const bookingReference = () =>
   'YL-' + Array.from({ length: 6 }, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[randomInt(32)]).join('');
 
 type Deps = { store: Store; payments: PaymentProvider; cinema: CinemaIntegration; accounts: Accounts; auth: Auth };

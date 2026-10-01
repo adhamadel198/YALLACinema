@@ -6,9 +6,10 @@ import { Store } from './data/store.ts';
 import { catalogRoutes } from './routes/catalog.ts';
 import { bookingRoutes } from './routes/booking.ts';
 import { accountRoutes } from './routes/accounts.ts';
-import { resaleRoutes } from './routes/resale.ts';
+import { resaleRoutes, resaleSweep } from './routes/resale.ts';
 import { operatorRoutes } from './routes/operator.ts';
 import { Accounts } from './data/accounts.ts';
+import { Resale } from './data/resale.ts';
 import { authFor } from './auth.ts';
 import { sandboxCinema, type CinemaIntegration } from './integrations/cinema.ts';
 import { sandboxPayments, type PaymentProvider } from './integrations/payments.ts';
@@ -25,16 +26,19 @@ export async function buildApp({
   const store = new Store(database, clock);
   const accounts = new Accounts(database, clock);
   const auth = authFor(accounts);
+  const resale = new Resale(database, clock);
   const app = Fastify({ logger, trustProxy });
   app.addHook('onClose', () => database.close());
   await app.register(cors, { origin: true, methods: ['GET', 'POST', 'PATCH', 'DELETE'], allowedHeaders: ['Content-Type', 'Accept-Language', 'X-Client-Id', 'Authorization'] });
   // Only routes that opt in (config.rateLimit) are limited.
   await app.register(rateLimit, { global: false });
   app.get('/health', async () => ({ ok: true }));
+  // Resale listings close when their show starts; checked before requests that show tickets (BRD 11).
+  app.addHook('preHandler', resaleSweep(resale, cinema, app.log));
   await app.register(catalogRoutes, { store });
   await app.register(bookingRoutes, { store, payments, cinema, accounts, auth });
   await app.register(accountRoutes, { store, accounts, auth });
-  await app.register(resaleRoutes, { store, accounts, auth, payments, cinema });
+  await app.register(resaleRoutes, { store, accounts, auth, payments, cinema, resale });
   await app.register(operatorRoutes, { store, accounts, auth });
   return app;
 }
