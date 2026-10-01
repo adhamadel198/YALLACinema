@@ -138,7 +138,10 @@ export function useDistanceSort() {
       : sort === 'distance' && near && near !== 'here' ? { sort: 'distance', nearArea: near }
         : { sort: 'soonest' };
 
-  return { sort, near, status, query, byDistance: query.sort === 'distance', setSort, setNear, retry: locateMe, reset };
+  /** After a failure "Use my location" was unselected (so results fall back to soonest); select it again. */
+  const retry = useCallback(() => setNear('here'), [setNear]);
+
+  return { sort, near, status, query, byDistance: query.sort === 'distance', setSort, setNear, retry, reset };
 }
 
 export type DistanceSort = ReturnType<typeof useDistanceSort>;
