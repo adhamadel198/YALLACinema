@@ -28,7 +28,8 @@
         {
           "locationWhenInUsePermission": "YALLA Cinema uses your location to sort cinemas by distance."
         }
-      ]
+      ],
+      "expo-splash-screen"
     ],
     "scheme": "yalla"
   }
