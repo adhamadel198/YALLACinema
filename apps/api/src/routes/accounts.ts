@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { bearerToken, type Auth } from '../auth.ts';
 import type { Account, Accounts } from '../data/accounts.ts';
 import type { Store } from '../data/store.ts';
-import { bookingView } from '../data/views.ts';
+import { holderBookingView } from '../data/views.ts';
 import { langOf } from '../data/i18n.ts';
 import { clientIdOf } from './booking.ts';
 import { emailSchema, mobileSchema, nameSchema } from './schemas.ts';
@@ -55,7 +55,7 @@ export async function accountRoutes(app: FastifyInstance, { store, accounts, aut
     const ids = await accounts.bookingIds((await auth.account(req)).id);
     const found = await Promise.all(ids.map((id) => store.booking(id)));
     const lang = langOf(req);
-    return found.filter((b) => b !== undefined).map((b) => bookingView(store, b, lang));
+    return Promise.all(found.filter((b) => b !== undefined).map((b) => holderBookingView(store, b, lang)));
   });
 
   /**

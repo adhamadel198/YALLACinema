@@ -3,7 +3,7 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { Auth } from '../auth.ts';
 import type { Accounts } from '../data/accounts.ts';
 import type { Store } from '../data/store.ts';
-import { bookingView, showtimeSummary, snapshotOf } from '../data/views.ts';
+import { bookingView, holderBookingView, showtimeSummary, snapshotOf } from '../data/views.ts';
 import { langOf } from '../data/i18n.ts';
 import { MAX_SEATS_PER_BOOKING } from '../domain/limits.ts';
 import { bookingTotal } from '../domain/pricing.ts';
@@ -123,8 +123,6 @@ export async function bookingRoutes(app: FastifyInstance, { store, payments, cin
   app.get<{ Params: { id: string } }>('/v1/bookings/:id', { schema: { params: { type: 'object', properties: { id: { type: 'string', format: 'uuid' } } } } }, async (req, reply) => {
     const booking = await store.booking(req.params.id);
     if (!booking) return reply.code(404).send({ error: 'Booking not found' });
-    // Set when the cinema changed or cancelled the show after this booking was made (BRD 9).
-    const showChange = (await store.corrections?.showChange(booking, langOf(req))) ?? null;
-    return { ...bookingView(store, booking, langOf(req)), showChange };
+    return holderBookingView(store, booking, langOf(req));
   });
 }

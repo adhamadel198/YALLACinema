@@ -17,3 +17,8 @@ export function showtimeSummary(store: Store, s: ShowtimeSnapshot, lang: Lang = 
 }
 
 export const bookingView = (store: Store, b: Booking, lang: Lang = 'en') => ({ ...b, showtime: showtimeSummary(store, b.showtime, lang) });
+
+/** A booking as its holder sees it, with any change the cinema made to the show after it was sold (BRD 9). */
+export async function holderBookingView(store: Store, b: Booking, lang: Lang = 'en') {
+  return { ...bookingView(store, b, lang), showChange: (await store.corrections?.showChange(b, lang)) ?? null };
+}
