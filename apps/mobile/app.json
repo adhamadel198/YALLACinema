@@ -29,7 +29,14 @@
           "locationWhenInUsePermission": "YALLA Cinema uses your location to sort cinemas by distance."
         }
       ],
-      "expo-splash-screen"
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 180,
+          "backgroundColor": "#11100e"
+        }
+      ]
     ],
     "scheme": "yalla"
   }
