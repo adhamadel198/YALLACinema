@@ -31,7 +31,8 @@ export const isUniqueViolation = (e: unknown) => (e as { code?: string })?.code 
  */
 export async function createDb(url = process.env.DATABASE_URL, pgliteDir = process.env.PGLITE_DIR ?? './.data/pglite'): Promise<Db> {
   const db = url ? postgres(url) : await pglite(pgliteDir);
-  await db.exec(schema);
+  // Several API instances can start at once (e.g. on Vercel); the lock makes them apply the schema one at a time.
+  await db.exec(db.kind === 'postgres' ? `BEGIN; SELECT pg_advisory_xact_lock(727274);\n${schema}\nCOMMIT;` : schema);
   return db;
 }
 

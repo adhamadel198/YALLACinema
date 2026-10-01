@@ -22,7 +22,8 @@ src/
   domain/            pure business rules: seat-group matching, fees, shared types
   data/seed.ts       sample movies/cinemas/showtimes from the web prototype
   data/store.ts      listings from seed data; holds, bookings and tickets in the database
-  db/                database connection (Postgres or embedded PGlite) and schema.sql
+  auth.ts            who is signed in (Authorization: Bearer <session token>) and route guards
+  db/                database connection (Postgres or embedded PGlite) and schema/, applied in name order
   integrations/      payment provider and cinema integration interfaces, with sandbox versions that always succeed
   routes/            HTTP endpoints
 ```
@@ -43,7 +44,8 @@ src/
 | Real | `GET /v1/showtimes/:id` | | Movie, cinema and price for one showtime |
 | Real, sandbox payment | `POST /v1/bookings` `{holdId, guest:{name,email,mobile}, paymentMethod, acceptPolicy}` | 6, 7.2–7.4 | Charges, asks the cinema to confirm, then issues one QR ticket per seat. Payment failure releases the hold (`402`); confirmation failure refunds and releases (`409`); expired hold `410` |
 | Real | `GET /v1/bookings/:id` | 6 | Booking with tickets. The UUID is the guest's access key until accounts exist |
-| Stub (501) | `POST /v1/auth/sign-in`, `GET /v1/me` | 7.3 | |
+| Real | `POST /v1/auth/sign-up` `{name, email, mobile, password}`, `POST /v1/auth/sign-in` `{email, password}` | 7.3 | Returns `{token, account}`; send `Authorization: Bearer <token>`. Passwords are hashed with scrypt; sessions last 30 days and only their hash is stored. Rate limited (10 per 10 minutes) |
+| Real | `POST /v1/auth/sign-out`, `GET /v1/me` | 7.3 | Bookings made while signed in are linked to the account |
 | Stub (501) | `GET/POST /v1/resale/listings`, `DELETE /v1/resale/listings/:id`, `POST /v1/resale/listings/:id/purchase` | 11 | Fee rules already in `domain/pricing.ts` |
 | Stub (501) | `GET /v1/operator/bookings`, `PATCH /v1/operator/showtimes/:id` | 7.5 | |
 
@@ -62,7 +64,7 @@ Each pilot cinema will plug in behind `integrations/cinema.ts` (today it only co
 
 ## Database
 
-Holds, bookings and tickets are stored in Postgres; the schema is `src/db/schema.sql` and is applied on start.
+Accounts, holds, bookings and tickets are stored in Postgres. The schema is the SQL files in `src/db/schema/`, applied in name order on every start, so each statement must be safe to run again (`IF NOT EXISTS`). Add a new numbered file for each change.
 
 - **Development and tests:** no setup. Without `DATABASE_URL` the API uses [PGlite](https://pglite.dev), an embedded Postgres, storing data in `apps/api/.data/pglite` (override with `PGLITE_DIR`). Delete that folder to start fresh. Tests use an in-memory database.
 - **Production:** set `DATABASE_URL=postgres://…` (on Vercel, `POSTGRES_URL` also works). This path uses the same SQL but has not been run against a hosted Postgres yet.
