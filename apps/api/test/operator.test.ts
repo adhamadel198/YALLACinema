@@ -219,6 +219,32 @@ test('customers whose show changed or was cancelled see a notice on their ticket
   assert.deepEqual(changes[3].affected, []);
 });
 
+test('staff see bookings by day: yesterday\'s shows with their bookings and corrections, no longer correctable', async () => {
+  let now = Date.now();
+  const app = await buildApp({ clock: () => now });
+  const reel = await staff(app, 'reel-cfc');
+  const show = await showAt(app, 'reel-cfc', 'a-little-chaos');
+  const booking = await book(app, show.showtimeId, 2);
+  await correct(app, reel, show.showtimeId, { time: '23:30' });
+  const yesterday = show.startsAt.slice(0, 10);
+
+  now += 24 * 60 * 60 * 1000;
+  const today = (await app.inject({ url: '/v1/operator/bookings', headers: reel })).json();
+  assert.notEqual(today.day, yesterday);
+  assert.deepEqual(today.days, [today.day, yesterday]);
+  assert.equal(today.totals.bookings, 0);
+
+  const before = (await app.inject({ url: `/v1/operator/bookings?day=${yesterday}`, headers: reel })).json();
+  assert.equal(before.day, yesterday);
+  assert.equal(before.shows.length, 1);
+  const [past] = before.shows;
+  assert.deepEqual([past.id, past.localTime, past.corrected, past.editable, past.listed], [show.showtimeId, '23:30', true, false, null]);
+  assert.equal(past.bookings[0].reference, booking.reference);
+  assert.equal(past.bookings[0].sold.startsAt, show.startsAt);
+  assert.equal((await correct(app, reel, show.showtimeId, { price: 100 })).statusCode, 404);
+  assert.equal((await app.inject({ url: `/v1/operator/bookings/${booking.reference}`, headers: reel })).json().show.editable, false);
+});
+
 test('corrections are checked: positive sane price, known format, a time on the same day', async () => {
   const app = await buildApp();
   const galaxy = await staff(app, 'galaxy-maadi');
