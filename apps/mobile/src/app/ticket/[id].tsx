@@ -3,6 +3,7 @@ import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-nat
 import QRCode from 'react-native-qrcode-svg';
 import { api } from '../../api/client';
 import { useRequest } from '../../api/useRequest';
+import { ShowChangeNotice } from '../../components/ShowChangeNotice';
 import { Button, Line, Message, Panel } from '../../components/ui';
 import { showDate } from '../../format';
 import { useI18n } from '../../i18n';
@@ -22,8 +23,9 @@ export default function TicketScreen() {
 
   return (
     <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
-      <Text style={[styles.ok, { color: theme.good }]}>{t.bookingConfirmed}</Text>
-      <Text style={[styles.h1, { color: theme.ink }, rtl && styles.noTracking]}>{t.goingToMovies}</Text>
+      <ShowChangeNotice change={b.showChange} />
+      {b.showChange?.kind !== 'cancelled' && <Text style={[styles.ok, { color: theme.good }]}>{t.bookingConfirmed}</Text>}
+      {b.showChange?.kind !== 'cancelled' && <Text style={[styles.h1, { color: theme.ink }, rtl && styles.noTracking]}>{t.goingToMovies}</Text>}
 
       <Panel style={{ marginTop: 16 }}>
         <Text style={[styles.kicker, { color: theme.accent }, rtl && styles.noTracking]}>{t.eTicket}</Text>
