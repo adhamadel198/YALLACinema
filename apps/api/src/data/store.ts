@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { Db, Queryable } from '../db/index.ts';
 import { isUniqueViolation } from '../db/index.ts';
 import type { Booking, Hold, SeatId, Showtime } from '../domain/types.ts';
+import type { Corrections } from './operator.ts';
 import { buildShowtimes, cairoDay, cinemas, movies } from './seed.ts';
 
 export const HOLD_TTL_MS = 10 * 60 * 1000; // BRD open decision #8; placeholder until agreed with cinemas.
@@ -26,10 +27,11 @@ export class Store {
   private day = '';
   private todays: Showtime[] = [];
 
-  constructor(private db: Db, private clock: () => number = Date.now) {}
+  /** `corrections`: cinema staff corrections to listings (data/operator.ts). */
+  constructor(private db: Db, private clock: () => number = Date.now, readonly corrections?: Corrections) {}
 
-  /** Today's showtimes in Cairo, rebuilt when the day changes. */
-  get showtimes(): Showtime[] {
+  /** Today's showtimes in Cairo as the cinemas list them, rebuilt when the day changes. */
+  get scheduled(): Showtime[] {
     const now = new Date(this.clock());
     const [day] = cairoDay(now);
     if (day !== this.day) {
@@ -37,6 +39,11 @@ export class Store {
       this.todays = buildShowtimes(now);
     }
     return this.todays;
+  }
+
+  /** Today's showtimes as customers see them: staff corrections applied, cancelled shows left out. */
+  get showtimes(): Showtime[] {
+    return this.corrections?.apply(this.scheduled) ?? this.scheduled;
   }
 
   movie(id: string) { return this.movies.find((m) => m.id === id); }
@@ -108,7 +115,9 @@ export class Store {
   /** Turns an unexpired hold into sold tickets. Returns false if the hold expired first. */
   async saveBooking(holdId: string, b: Booking): Promise<boolean> {
     return this.db.transaction(async (tx) => {
-      if (!(await this.getHold(holdId, tx))) return false;
+      // Claim the hold before anything else, so a hold released meanwhile (by staff changing the show) fails the booking.
+      const claimed = await tx.query('DELETE FROM holds WHERE id = $1 AND expires_at > $2 RETURNING id', [holdId, this.now()]);
+      if (!claimed.rows.length) return false;
       const s = b.showtime;
       await tx.query(
         `INSERT INTO bookings (id, reference, showtime_id, movie_id, cinema_id, starts_at, format, ticket_price, holder,
@@ -117,7 +126,6 @@ export class Store {
         [b.id, b.reference, s.showtimeId, s.movieId, s.cinemaId, s.startsAt, s.format, s.price, JSON.stringify(b.holder),
           b.paymentMethod, JSON.stringify(b.price), b.paymentRef, b.cinemaConfirmation, b.createdAt, b.accountId],
       );
-      await tx.query('DELETE FROM holds WHERE id = $1', [holdId]);
       for (const t of b.tickets)
         await tx.query('INSERT INTO tickets (id, booking_id, showtime_id, seat, qr, status) VALUES ($1, $2, $3, $4, $5, $6)',
           [t.id, b.id, s.showtimeId, t.seat, t.qr, t.status]);

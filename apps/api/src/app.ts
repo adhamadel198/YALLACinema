@@ -9,6 +9,7 @@ import { accountRoutes } from './routes/accounts.ts';
 import { resaleRoutes } from './routes/resale.ts';
 import { operatorRoutes } from './routes/operator.ts';
 import { Accounts } from './data/accounts.ts';
+import { Corrections } from './data/operator.ts';
 import { authFor } from './auth.ts';
 import { sandboxCinema, type CinemaIntegration } from './integrations/cinema.ts';
 import { sandboxPayments, type PaymentProvider } from './integrations/payments.ts';
@@ -22,7 +23,8 @@ export async function buildApp({
   trustProxy = process.env.TRUST_PROXY === '1',
 }: Options = {}) {
   const database = db ?? (await createDb(undefined, 'memory://'));
-  const store = new Store(database, clock);
+  const corrections = new Corrections(database, clock);
+  const store = new Store(database, clock, corrections);
   const accounts = new Accounts(database, clock);
   const auth = authFor(accounts);
   const app = Fastify({ logger, trustProxy });
@@ -30,11 +32,14 @@ export async function buildApp({
   await app.register(cors, { origin: true, methods: ['GET', 'POST', 'PATCH', 'DELETE'], allowedHeaders: ['Content-Type', 'Accept-Language', 'X-Client-Id', 'Authorization'] });
   // Only routes that opt in (config.rateLimit) are limited.
   await app.register(rateLimit, { global: false });
+  // Staff corrections to listings (data/operator.ts) live in the database. Reload them for every API request,
+  // so that with several API instances running each one serves the listings the database holds.
+  app.addHook('onRequest', async (req) => { if (req.method !== 'OPTIONS' && req.url.startsWith('/v1/')) await corrections.refresh(); });
   app.get('/health', async () => ({ ok: true }));
   await app.register(catalogRoutes, { store });
   await app.register(bookingRoutes, { store, payments, cinema, accounts, auth });
   await app.register(accountRoutes, { store, accounts, auth });
   await app.register(resaleRoutes, { store, accounts, auth, payments, cinema });
-  await app.register(operatorRoutes, { store, accounts, auth });
+  await app.register(operatorRoutes, { store, accounts, auth, corrections });
   return app;
 }
