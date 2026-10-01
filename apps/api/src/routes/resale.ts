@@ -8,7 +8,7 @@ import { bookingView, showtimeSummary } from '../data/views.ts';
 import { langOf, type Lang } from '../data/i18n.ts';
 import { MAX_SEATS_PER_BOOKING } from '../domain/limits.ts';
 import { bookingTotal, PLATFORM_FEE_PER_TICKET, RESALE_SELLER_FEE, resaleQuote } from '../domain/pricing.ts';
-import type { Booking, PaymentMethod } from '../domain/types.ts';
+import type { Booking, PaymentMethod, ShowtimeSnapshot } from '../domain/types.ts';
 import type { PaymentProvider } from '../integrations/payments.ts';
 import type { CinemaIntegration } from '../integrations/cinema.ts';
 import { bookingReference, clientIdOf } from './booking.ts';
@@ -83,17 +83,33 @@ export function resaleSweep(resale: Resale, cinema: CinemaIntegration, log: Fast
 /** Resale marketplace (BRD 11). Fees are in domain/pricing.ts; data access in data/resale.ts. */
 export async function resaleRoutes(app: FastifyInstance, { store, auth, payments, cinema, resale }: Deps) {
   const showStarted = (startsAt: string) => Date.parse(startsAt) <= resale.now().getTime();
+  /**
+   * What was sold, with the start time and format cinema staff have since set (data/operator.ts), or null if
+   * they cancelled the show. Shows outside today's listings keep what was sold.
+   */
+  const liveShow = (sold: ShowtimeSnapshot): ShowtimeSnapshot | null => {
+    if (!store.scheduled.some((s) => s.id === sold.showtimeId)) return sold;
+    const now = store.showtime(sold.showtimeId);
+    return now ? { ...sold, startsAt: now.startsAt, format: now.format } : null;
+  };
+  /** A listing as buyers should see it now, or null once it can no longer be bought. */
+  const buyable = (l: Listing): Listing | null => {
+    const show = liveShow(l.showtime);
+    return l.status === 'open' && show && !showStarted(show.startsAt) ? { ...l, showtime: show } : null;
+  };
 
   /** Open listings, soonest show first. Browsing needs no account (BRD 7.1); buying does. */
   app.get('/v1/resale/listings', async (req) => {
     const viewer = (await auth.accountOf(req))?.id;
-    return (await resale.openListings()).map((l) => marketView(store, l, langOf(req), viewer)).filter((l) => l.tickets.length);
+    return (await resale.openListings()).flatMap((l) => buyable(l) ?? [])
+      .map((l) => marketView(store, l, langOf(req), viewer)).filter((l) => l.tickets.length);
   });
 
   app.get<{ Params: { id: string } }>('/v1/resale/listings/:id', { schema: { params: uuidParams } }, async (req, reply) => {
-    const listing = await resale.listing(req.params.id);
-    if (!listing) return reply.code(404).send({ error: 'Listing not found', code: 'not-found' });
-    if (listing.status !== 'open' || showStarted(listing.showtime.startsAt)) return reply.code(410).send({ error: 'This listing has closed.', code: 'closed' });
+    const found = await resale.listing(req.params.id);
+    if (!found) return reply.code(404).send({ error: 'Listing not found', code: 'not-found' });
+    const listing = buyable(found);
+    if (!listing) return reply.code(410).send({ error: 'This listing has closed.', code: 'closed' });
     return marketView(store, listing, langOf(req), (await auth.accountOf(req))?.id);
   });
 
@@ -155,7 +171,9 @@ export async function resaleRoutes(app: FastifyInstance, { store, auth, payments
     if (!booking) return reply.code(404).send({ error: 'Booking not found', code: 'not-found' });
     if (booking.accountId !== seller.id)
       return reply.code(403).send({ error: 'Only tickets booked with your account can be resold.', code: 'not-owner' });
-    if (showStarted(booking.showtime.startsAt))
+    const show = liveShow(booking.showtime);
+    if (!show) return reply.code(409).send({ error: 'The cinema cancelled this show, so these tickets can’t be listed.', code: 'show-cancelled' });
+    if (showStarted(show.startsAt))
       return reply.code(409).send({ error: 'The show has started, so these tickets can no longer be listed.', code: 'show-started' });
     if (price > booking.showtime.price)
       return reply.code(400).send({ error: `The price can be at most ${booking.showtime.price} EGP, what you paid per ticket excluding fees.`, code: 'price-cap', maxPrice: booking.showtime.price });
@@ -205,10 +223,12 @@ export async function resaleRoutes(app: FastifyInstance, { store, auth, payments
   }, async (req, reply) => {
     const buyer = await auth.account(req);
     const { ticketIds, paymentMethod } = req.body;
-    const listing = await resale.listing(req.params.id);
-    if (!listing) return reply.code(404).send({ error: 'Listing not found', code: 'not-found' });
-    if (listing.sellerAccountId === buyer.id) return reply.code(403).send({ error: 'You can’t buy your own listing.', code: 'own-listing' });
-    if (listing.status !== 'open' || showStarted(listing.showtime.startsAt)) return reply.code(410).send({ error: 'This listing has closed.', code: 'closed' });
+    const found = await resale.listing(req.params.id);
+    if (!found) return reply.code(404).send({ error: 'Listing not found', code: 'not-found' });
+    if (found.sellerAccountId === buyer.id) return reply.code(403).send({ error: 'You can’t buy your own listing.', code: 'own-listing' });
+    // The buyer's booking records the show as it is now, if staff moved it after the seller bought.
+    const listing = buyable(found);
+    if (!listing) return reply.code(410).send({ error: 'This listing has closed.', code: 'closed' });
     if (!cinema.resale) return reply.code(409).send({ error: 'This cinema does not support resale yet.', code: 'cinema-unsupported' });
     const unknown = ticketIds.filter((id) => !listing.tickets.some((t) => t.ticketId === id));
     if (unknown.length) return reply.code(409).send({ error: 'Those tickets are not in this listing.', code: 'unavailable', ticketIds: unknown });

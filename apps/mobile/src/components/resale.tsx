@@ -99,7 +99,7 @@ export function TicketResale({ booking }: { booking: Booking }) {
   const sold = count('transferred');
   const sellable = count('valid');
   const started = Date.parse(booking.showtime.startsAt) <= Date.now();
-  const canSell = sellable > 0 && !started;
+  const canSell = sellable > 0 && !started && booking.showChange?.kind !== 'cancelled';
 
   if (!ready) return null;
   if (!booking.accountId) {

@@ -7,6 +7,7 @@ import { buildApp } from '../src/app.ts';
 import { createDb, isUniqueViolation, type Db } from '../src/db/index.ts';
 import { sandboxCinema, type CinemaIntegration, type CinemaResale } from '../src/integrations/cinema.ts';
 import { sandboxPayments, type PaymentProvider } from '../src/integrations/payments.ts';
+import { DEMO_STAFF_PASSWORD, demoStaffEmail } from '../src/data/operator.ts';
 
 type App = Awaited<ReturnType<typeof buildApp>>;
 type Headers = Record<string, string>;
@@ -429,4 +430,36 @@ test('a seat is unique among tickets in use, and the schema can be applied again
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
+});
+
+test('resale follows the cinema’s corrections: a moved show sells at its new time, a cancelled one is off sale', async () => {
+  const s = await setup();
+  const [first, second] = s.tickets.tickets.map((t) => t.id);
+  const { showtime } = await s.booking(s.tickets.id);
+  const signIn = await s.app.inject({ method: 'POST', url: '/v1/auth/sign-in',
+    payload: { email: demoStaffEmail(showtime.cinema.id), password: DEMO_STAFF_PASSWORD } });
+  const staff = { authorization: `Bearer ${signIn.json().token}` };
+  const correct = async (payload: Record<string, unknown>) =>
+    assert.equal((await s.app.inject({ method: 'PATCH', url: `/v1/operator/showtimes/${showtime.showtimeId}`, headers: staff, payload })).statusCode, 200);
+
+  const moved = await s.list(s.seller.headers, s.tickets.id, [first], 100);
+  assert.equal(moved.statusCode, 201, moved.body);
+  await correct({ time: '21:10' });
+  assert.equal((await s.market())[0].showtime.localTime, '21:10');
+  const bought = await s.buy(s.buyer.headers, moved.json().id, [first]);
+  assert.equal(bought.statusCode, 201, bought.body);
+  assert.equal(bought.json().showtime.localTime, '21:10');
+  // The buyer bought the show as it is now, so there is nothing to tell them.
+  assert.equal((await s.booking(bought.json().id)).showChange, null);
+
+  const cancelled = await s.list(s.seller.headers, s.tickets.id, [second], 100);
+  assert.equal(cancelled.statusCode, 201, cancelled.body);
+  await correct({ cancelled: true });
+  assert.deepEqual(await s.market(), []);
+  assert.equal((await s.app.inject(`/v1/resale/listings/${cancelled.json().id}`)).statusCode, 410);
+  assert.equal((await s.buy(s.buyer.headers, cancelled.json().id, [second])).statusCode, 410);
+  assert.equal((await s.app.inject({ method: 'DELETE', url: `/v1/resale/listings/${cancelled.json().id}`, headers: s.seller.headers })).statusCode, 200);
+  const relist = await s.list(s.seller.headers, s.tickets.id, [second], 100);
+  assert.equal(relist.statusCode, 409);
+  assert.equal(relist.json().code, 'show-cancelled');
 });

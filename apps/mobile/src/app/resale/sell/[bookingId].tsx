@@ -103,6 +103,7 @@ export default function SellTickets() {
           : code === 'ineligible' ? t.resaleIneligible
           : code === 'cinema-ineligible' ? t.resaleCinemaIneligible
           : code === 'show-started' ? t.resaleShowStarted
+          : code === 'show-cancelled' ? t.resaleShowCancelled
           : code === 'not-owner' ? t.resaleNotOwner
           : code === 'payout-required' ? t.resalePayoutWhy
           : t.genericError,
