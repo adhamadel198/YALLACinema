@@ -54,8 +54,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const start = useCallback(async ({ token, account: signedIn }: { token: string; account: Account }) => {
     setAuthToken(token);
-    // Guest bookings made on this device join the account's history. Never blocks signing in.
-    await claimDeviceBookings().catch(() => {});
+    // Guest bookings made on this device join a customer's history; cinema staff signing in on a shared
+    // device must not take them. Never blocks signing in.
+    if (signedIn.role !== 'operator') await claimDeviceBookings().catch(() => {});
     const next = { token, account: signedIn };
     use(next);
     await save(next);
