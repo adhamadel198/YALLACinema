@@ -124,7 +124,7 @@ export async function catalogRoutes(app: FastifyInstance, { store }: { store: St
     const held = (await store.takenSeats([s.id])).get(s.id) ?? [];
     const groups = findSeatGroups(s.seatMap, req.query.count, req.query.arrangement, held);
     return {
-      showtimeId: s.id, rows: s.seatMap.rows, cols: s.seatMap.cols,
+      showtimeId: s.id, rows: s.seatMap.rows, cols: s.seatMap.cols, aisles: s.seatMap.aisles ?? [],
       unavailable: [...s.seatMap.unavailable, ...held],
       groups, best: bestGroup(groups, s.seatMap) ?? null,
     };

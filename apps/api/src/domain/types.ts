@@ -34,6 +34,11 @@ export interface SeatMap {
   cols: number;
   /** Seats sold or otherwise unavailable at the cinema. */
   unavailable: SeatId[];
+  /**
+   * Walkways: an aisle runs after each of these seat numbers, e.g. [2, 10] gives 2 | 8 | 2 seats per row.
+   * Seat numbers carry on across the aisle, and seats either side of it are not next to each other.
+   */
+  aisles?: number[];
 }
 
 export interface Showtime {
