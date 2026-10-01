@@ -41,3 +41,17 @@ test('sign-up checks its fields', async () => {
   assert.equal((await app.inject({ method: 'POST', url: '/v1/auth/sign-up', payload: { ...mona, password: 'short' } })).statusCode, 400);
   assert.equal((await app.inject({ method: 'POST', url: '/v1/auth/sign-up', payload: { ...mona, email: 'nope' } })).statusCode, 400);
 });
+
+test('a booking made while signed in belongs to the account; a guest booking to nobody', async () => {
+  const app = await buildApp();
+  const { token, account } = (await app.inject({ method: 'POST', url: '/v1/auth/sign-up', payload: mona })).json();
+  const { results } = (await app.inject('/v1/movies/the-last-light/showtimes?count=1&arrangement=connected')).json();
+  const { groups } = (await app.inject(`/v1/showtimes/${results[0].showtimeId}/seats?count=1&arrangement=connected`)).json();
+  const book = async (seat: string, headers: Record<string, string>) => {
+    const hold = (await app.inject({ method: 'POST', url: '/v1/holds', payload: { showtimeId: results[0].showtimeId, seats: [seat] }, headers })).json();
+    const guest = { name: mona.name, email: mona.email, mobile: mona.mobile };
+    return (await app.inject({ method: 'POST', url: '/v1/bookings', payload: { holdId: hold.id, guest, paymentMethod: 'card', acceptPolicy: true }, headers })).json();
+  };
+  assert.equal((await book(groups[0].seats[0], bearer(token))).accountId, account.id);
+  assert.equal((await book(groups[1].seats[0], { 'x-client-id': 'guest-device-1' })).accountId, null);
+});

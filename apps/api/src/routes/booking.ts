@@ -29,7 +29,7 @@ export const clientIdOf = (req: FastifyRequest) => {
 
 const limit = (max: number) => ({ rateLimit: { max, timeWindow: '10 minutes', keyGenerator: clientIdOf } });
 
-export async function bookingRoutes(app: FastifyInstance, { store, payments, cinema }: Deps) {
+export async function bookingRoutes(app: FastifyInstance, { store, payments, cinema, auth }: Deps) {
   /** Recheck and hold the exact seats before payment (BRD 7.2). Replaces this client's previous hold. */
   app.post<{ Body: { showtimeId: string; seats: string[] } }>('/v1/holds', {
     config: limit(30),
@@ -103,7 +103,8 @@ export async function bookingRoutes(app: FastifyInstance, { store, payments, cin
     if (!confirmation.ok) return refund();
 
     const booking: Booking = {
-      id: randomUUID(), reference, showtime: snapshotOf(showtime), holder: req.body.guest, paymentMethod: req.body.paymentMethod,
+      id: randomUUID(), reference, showtime: snapshotOf(showtime), holder: req.body.guest,
+      accountId: (await auth.accountOf(req))?.id ?? null, paymentMethod: req.body.paymentMethod,
       price, paymentRef: charge.paymentRef, cinemaConfirmation: confirmation.confirmation,
       tickets: hold.seats.map((seat) => ({ id: randomUUID(), seat, qr: `YALLA:${reference}:${seat}`, status: 'valid' })),
       createdAt: new Date().toISOString(),

@@ -10,7 +10,7 @@ type HoldRow = { id: string; showtime_id: string; seats: string[]; expires_at: D
 type BookingRow = {
   id: string; reference: string; showtime_id: string; movie_id: string; cinema_id: string; starts_at: string; format: string;
   ticket_price: number; holder: Booking['holder']; payment_method: Booking['paymentMethod']; price: Booking['price'];
-  payment_ref: string; cinema_confirmation: string; created_at: Date | string;
+  payment_ref: string; cinema_confirmation: string; created_at: Date | string; account_id: string | null;
 };
 
 const iso = (d: Date | string) => new Date(d).toISOString();
@@ -112,10 +112,10 @@ export class Store {
       const s = b.showtime;
       await tx.query(
         `INSERT INTO bookings (id, reference, showtime_id, movie_id, cinema_id, starts_at, format, ticket_price, holder,
-           payment_method, price, payment_ref, cinema_confirmation, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+           payment_method, price, payment_ref, cinema_confirmation, created_at, account_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
         [b.id, b.reference, s.showtimeId, s.movieId, s.cinemaId, s.startsAt, s.format, s.price, JSON.stringify(b.holder),
-          b.paymentMethod, JSON.stringify(b.price), b.paymentRef, b.cinemaConfirmation, b.createdAt],
+          b.paymentMethod, JSON.stringify(b.price), b.paymentRef, b.cinemaConfirmation, b.createdAt, b.accountId],
       );
       await tx.query('DELETE FROM holds WHERE id = $1', [holdId]);
       for (const t of b.tickets)
@@ -131,7 +131,7 @@ export class Store {
     if (!r) return undefined;
     const tickets = await this.db.query<Booking['tickets'][number]>('SELECT id, seat, qr, status FROM tickets WHERE booking_id = $1 ORDER BY seat', [id]);
     return {
-      id: r.id, reference: r.reference, holder: r.holder, paymentMethod: r.payment_method, price: r.price,
+      id: r.id, reference: r.reference, holder: r.holder, accountId: r.account_id, paymentMethod: r.payment_method, price: r.price,
       paymentRef: r.payment_ref, cinemaConfirmation: r.cinema_confirmation, createdAt: iso(r.created_at), tickets: tickets.rows,
       showtime: { showtimeId: r.showtime_id, movieId: r.movie_id, cinemaId: r.cinema_id, startsAt: r.starts_at, format: r.format, price: r.ticket_price },
     };

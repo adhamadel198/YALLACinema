@@ -92,6 +92,8 @@ export interface Booking {
   reference: string;
   showtime: ShowtimeSnapshot;
   holder: Guest;
+  /** The account that booked, or null for a guest booking. */
+  accountId: string | null;
   paymentMethod: PaymentMethod;
   price: { tickets: number; fees: number; total: number };
   paymentRef: string;
