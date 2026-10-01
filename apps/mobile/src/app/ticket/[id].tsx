@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import { api } from '../../api/client';
 import { useRequest } from '../../api/useRequest';
@@ -50,6 +50,10 @@ export default function TicketScreen() {
       <Text style={{ color: theme.muted, fontSize: 12, marginVertical: 12 }}>
         {t.emailNote(b.holder.email)} {b.showtime.cinema.cancellationPolicy}
       </Text>
+      <Pressable accessibilityRole="link" hitSlop={8} style={{ alignSelf: 'flex-start', paddingVertical: 6, marginBottom: 12 }}
+        onPress={() => router.push({ pathname: '/support', params: { ref: b.reference, cinema: b.showtime.cinema.id } })}>
+        <Text style={{ color: theme.accent, fontWeight: '800' }}>{t.supportNeedHelp}</Text>
+      </Pressable>
       <Button title={t.findAnother} kind="secondary" onPress={() => router.dismissTo('/')} />
     </ScrollView>
   );
