@@ -169,7 +169,7 @@ export default function SeatScreen() {
             </View>
           )}
           {notice && <Text style={{ color: theme.accent, marginTop: 8 }}>{notice}</Text>}
-          <Button title={seats.length === count ? t.holdSeats : t.pickMore(count - seats.length)} onPress={continueToCheckout}
+          <Button title={seats.length === count ? t.holdSeats : t.pickMore(count - seats.length, seats.length > 0)} onPress={continueToCheckout}
             busy={busy} disabled={seats.length !== count} style={{ marginTop: 10 }} />
         </View>
       )}

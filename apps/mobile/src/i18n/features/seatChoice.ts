@@ -9,7 +9,8 @@ export const en = {
   splitPlaces: (n: number) => `apart, in ${n} places`,
   clearSeats: 'Clear',
   clearSeatsLabel: 'Clear the seats you picked',
-  pickMore: (n: number) => (n === 1 ? 'Pick 1 more seat' : `Pick ${n} more seats`),
+  /** The hold button until enough seats are picked; `started` once at least one is. */
+  pickMore: (n: number, started: boolean) => `Pick ${n}${started ? ' more' : ''} ${n === 1 ? 'seat' : 'seats'}`,
   allPicked: (n: number) =>
     n === 1 ? 'You’ve picked your seat. Tap it to drop it, or clear and start again.' : `You’ve picked all ${n} seats. Tap one of them to drop it, or clear and start again.`,
   priceLine: (n: number, price: string, fees: string) => `${n} × ${price} + ${fees} fee`,
@@ -28,7 +29,7 @@ export const ar: typeof en = {
   splitPlaces: (n) => `متفرقين في ${n} أماكن`,
   clearSeats: 'امسح',
   clearSeatsLabel: 'امسح الكراسي اللي اخترتها',
-  pickMore: (n) => (n === 1 ? 'اختار كرسي كمان' : n === 2 ? 'اختار كرسيين كمان' : `اختار ${n} كراسي كمان`),
+  pickMore: (n, started) => `اختار ${n === 1 ? 'كرسي' : n === 2 ? 'كرسيين' : `${n} كراسي`}${started ? ' كمان' : ''}`,
   allPicked: (n) =>
     `اخترت ${n === 1 ? 'الكرسي' : n === 2 ? 'الكرسيين' : `الـ ${n} كراسي`} خلاص. دوس على كرسي مختار عشان تشيله، أو امسح وابدأ من الأول.`,
   priceLine: (n, price, fees) => `${n} × ${price} + ${fees} رسوم`,
