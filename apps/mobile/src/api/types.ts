@@ -69,6 +69,8 @@ export interface SeatMapResponse {
   showtimeId: string;
   rows: number;
   cols: number;
+  /** Seat numbers with a walkway after them. */
+  aisles?: number[];
   unavailable: string[];
   groups: SeatGroup[];
   best: SeatGroup | null;
