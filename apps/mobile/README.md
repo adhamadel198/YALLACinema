@@ -9,7 +9,7 @@ npm start          # scan the QR code with Expo Go, or press a / i / w
 npm run typecheck
 ```
 
-Start the API first (`apps/api`, port 4000). The app finds it at the address of the machine running `npm start`, so Expo Go on a phone on the same Wi-Fi works without config. To point elsewhere, set `EXPO_PUBLIC_API_URL`, e.g. `EXPO_PUBLIC_API_URL=https://api.example.com npm start`.
+Start the API first (`apps/api`, port 4000). The app finds it at the address of the machine running `npm start`, so Expo Go on a phone on the same Wi-Fi works without config. To point elsewhere, set `EXPO_PUBLIC_API_URL`, e.g. `EXPO_PUBLIC_API_URL=https://api.example.com npm start`. A web build (`npx expo export --platform web`, as Vercel runs it) calls the API on the site's own address.
 
 ## Screens
 

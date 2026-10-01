@@ -1,6 +1,6 @@
 # YALLA Cinema API
 
-Node.js backend for the YALLA Cinema app, built with [Fastify](https://fastify.dev) and TypeScript (run directly with `tsx`, no build step).
+Node.js backend for the YALLA Cinema app, built with [Fastify](https://fastify.dev) and TypeScript (run directly with `tsx`; bundled with esbuild only for Vercel).
 
 ```bash
 cd apps/api
@@ -17,6 +17,7 @@ npm run typecheck
 ```
 src/
   server.ts          entry point
+  vercel.ts          Vercel function entry (bundled by scripts/bundle-vercel.mjs)
   app.ts             builds the Fastify app (used by tests via app.inject)
   domain/            pure business rules: seat-group matching, fees, shared types
   data/seed.ts       sample movies/cinemas/showtimes from the web prototype
@@ -64,10 +65,11 @@ Each pilot cinema will plug in behind `integrations/cinema.ts` (today it only co
 Holds, bookings and tickets are stored in Postgres; the schema is `src/db/schema.sql` and is applied on start.
 
 - **Development and tests:** no setup. Without `DATABASE_URL` the API uses [PGlite](https://pglite.dev), an embedded Postgres, storing data in `apps/api/.data/pglite` (override with `PGLITE_DIR`). Delete that folder to start fresh. Tests use an in-memory database.
-- **Production:** set `DATABASE_URL=postgres://…`. This path uses the same SQL but has not been run against a hosted Postgres yet.
+- **Production:** set `DATABASE_URL=postgres://…` (on Vercel, `POSTGRES_URL` also works). This path uses the same SQL but has not been run against a hosted Postgres yet.
+- **Vercel:** the API runs as one function (`src/vercel.ts`, see the root README). Without a database URL it uses an in-memory database that resets whenever Vercel starts a new instance.
 
 A unique key on `(showtime, seat)` in `held_seats` and `tickets` is what guarantees two customers can never hold or buy the same seat, even when requests arrive at the same moment.
 
 ## Abuse limits
 
-There is no sign-in for booking, so the app sends a random per-install id in `X-Client-Id` (the IP address is used when it is missing). Each id gets one active hold at a time, and holds and bookings are rate limited per id. A booking (and so a hold) has at most 10 seats (`src/domain/limits.ts`); requests above that get `400`. Behind a load balancer, set `TRUST_PROXY=1` so limits see the real client address.
+There is no sign-in for booking, so the app sends a random per-install id in `X-Client-Id` (the IP address is used when it is missing). Each id gets one active hold at a time, and holds and bookings are rate limited per id. A booking (and so a hold) has at most 10 seats (`src/domain/limits.ts`); requests above that get `400`. Behind a load balancer, set `TRUST_PROXY=1` so limits see the real client address (the Vercel entry always trusts Vercel's proxy).

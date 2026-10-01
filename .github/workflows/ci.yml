@@ -42,3 +42,18 @@ jobs:
       - run: npm run typecheck
       # Builds the web and Android bundles, which catches broken imports and Metro errors that tsc misses.
       - run: npx expo export --platform web --platform android --output-dir dist
+
+  vercel:
+    name: Vercel build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/*/package-lock.json
+      # The same install and build commands as vercel.json, then a request to the bundled API.
+      - run: npm ci --prefix apps/mobile && npm ci --prefix apps/api
+      - run: bash scripts/vercel-build.sh
+      - run: node apps/api/scripts/smoke-vercel.mjs .vercel/output/functions/api.func
