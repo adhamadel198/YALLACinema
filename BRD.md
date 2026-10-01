@@ -2,7 +2,7 @@
 
 ## Business Requirements Document
 
-**Version:** 0.2 — Discovery draft with booking size limit  
+**Version:** 0.3 — Discovery draft with pilot app defaults  
 **Status:** Draft; business and operational decisions remain open  
 **Market:** Egypt  
 **Working product name:** TBD
@@ -92,17 +92,20 @@ A booking is considered successful when payment is captured and the cinema confi
 - Customers shall be able to filter results by cinema, area, and showtime range.
 - Qualifying showtimes shall be sortable by soonest showtime and distance from the customer's selected or shared location; customers shall be able to choose the sort order.
 - Distance sorting shall support optional device location and a manually selected area; location sharing shall be optional.
+- Pilot: distance is measured in a straight line from the shared device location, or from the centre of the selected area, to each cinema's single map point; distances under 1 km read "under 1 km". Device location is requested only when the customer taps "Use my location", is kept for that session only, and is not stored or written to application logs. Open decision 17 remains for the final rule.
 - After choosing a movie, customers shall be able to enter the number of seats needed and specify whether seats must be connected, separated, or either.
 - Search results shall include only cinema/showtime options where the requested number of seats can be selected and held together at that time.
 - A showtime qualifies when at least the requested number of matching seats are available; the customer selects exactly the requested number for that booking.
 - If there are no exact matches, the platform shall report no matching showtimes and let customers change the requested quantity or arrangement; it shall not silently broaden criteria or present near matches as exact results.
 - If matching seats become unavailable before selection, the platform shall refresh availability and present updated matching options.
 - Connected seats mean seats immediately next to each other in the same row.
+- Pilot: seats on either side of an aisle are not connected.
 - When separated seats are allowed, results shall label the separated seat groups clearly; they shall only be shown when the customer permits separated seats.
 - For searches allowing separated seats, any grouping pattern that totals the requested quantity may qualify (for example, 2+2 for four seats).
 - Connected and separated matches shall have equal priority in results when the customer allows either arrangement.
 - The seat map shall highlight the seat or seat groups that matched the search request.
 - The platform shall highlight a best matching seat group and allow the customer to choose another qualifying group on the seat map.
+- Pilot: the best matching group is selected by default. Customers may instead pick any available seats one by one, connected or separated, up to the requested quantity; the platform holds exactly the requested number of seats.
 - Listings shall support Arabic and English.
 - Cinema systems are the source for showtime and availability information; cinemas are responsible for correcting listing data.
 
@@ -122,6 +125,7 @@ A booking is considered successful when payment is captured and the cinema confi
 - Users may book as guests or account holders.
 - Guest checkout shall collect name, email address, and mobile number.
 - Account registration shall not be mandatory for booking.
+- Pilot: accounts use email and password. Signed-in customers see their booking history on any device, guest bookings made on the same device are added to the account when they sign in, and checkout is filled in from the account details (see 5.1).
 
 ### 7.4 Payments and fees
 
@@ -136,11 +140,13 @@ A booking is considered successful when payment is captured and the cinema confi
 - Cinema staff shall be able to view bookings.
 - Cinema staff shall be able to correct listings.
 - Detailed portal roles, permissions, reporting, and listing-edit workflows remain to be defined.
+- Pilot: each staff account belongs to one cinema and sees only that cinema's bookings and listings, without customer contact details. Staff can correct a show's price, format and start time (on the same day), and cancel or reinstate it. A correction applies at once to listings, search, seat maps and new bookings, and ends checkouts in progress for that show; existing bookings keep what was sold. There is one staff role per cinema.
 
 ### 7.6 Customer support
 
 - The platform shall handle first-line customer support for booking issues and coordinate with cinemas.
 - Support hours, contact channels, response targets, and escalation procedures remain open decisions.
+- Pilot: a help page answers common questions (booking, seat holds, fees, tickets, cancellations, resale) and shows each cinema's cancellation policy. Customers reach it from the account area or from a ticket; from a ticket it shows the booking reference and that cinema's policy first. Contact channels and hours are a marked placeholder until open decision 4 is settled.
 
 ## 8. Cinema integration and operational requirements
 
@@ -160,6 +166,7 @@ The integration approach, supported cinema system types, API contracts, availabi
 - The applicable policy shall be shown before purchase.
 - If a cinema changes or cancels a show after sale, the platform shall notify affected customers, coordinate with the cinema, and follow the applicable refund or rebooking policy.
 - Exact notification timing, refund workflow, and responsibility for funding refunds remain to be agreed with cinemas and the payment provider.
+- Pilot: changes made in the operator portal after sale are recorded with the bookings they affect, and those customers see a notice on their ticket. A price change affects no existing booking. The notification channel and timing remain open.
 
 ## 10. Business model and promotion
 
@@ -207,6 +214,13 @@ Ticket resale is included in the current development phase. The agreed business 
 - If only some tickets in a multi-ticket listing sell, unsold tickets remain valid for the original owner and may be withdrawn or relisted until showtime.
 - If the cinema cancels or changes a show after resale, notify both parties and apply the cinema's policy to the current ticket holder; the platform coordinates the refund or rebooking.
 - If the cinema policy allows a refund after resale, the ticket price is refundable but platform fees are non-refundable, subject to applicable cinema, payment-provider, and contractual terms.
+- Pilot: only tickets from a booking linked to the seller's account can be listed. A guest booking is linked when the customer signs in on the device they booked with.
+- Pilot: payout details are required before listing but are stored unverified until a verification provider is chosen, and no payouts are made yet (open decision 11).
+- Pilot: withdrawn tickets are valid again at once.
+- Pilot: if the transfer fails, the buyer is refunded and the seller's tickets come off sale and stay valid.
+- Pilot: unsold tickets from a listing that closed at showtime stay blocked until the cinema confirms reactivation. A failed confirmation is retried at most once a minute and logged for support (open decision 18).
+- Pilot: a purchase that has not finished after 10 minutes, for example because of a server failure, is released and its tickets go back on sale; support checks for a charge under its reference.
+- Pilot: resale follows the cinema's corrections. Tickets for a cancelled show cannot be listed, and its listings leave the marketplace and cannot be bought; a moved show is listed and sold at its new time and format, and its listings close at the new start.
 
 Buyer protections, payment-provider support, seller payout method and timing, refund accounting, and cinema integration requirements still need detailed requirements and cinema agreement. The cinema integration must support invalidating the original ticket and validating the replacement ticket. If a resale listing expires unsold, it must not leave both the original owner and a prospective buyer able to use the same ticket.
 
@@ -275,6 +289,9 @@ The initial product must support Arabic and English, protect customer contact an
 17. **Distance sorting:** Define the distance calculation and treatment of unavailable or approximate cinema location data.
 18. **Resale expiry and recovery:** Define the cinema/API confirmation needed before restoring an unsold ticket to valid status, and the recovery path if that confirmation is unavailable.
 19. **Resale fee refunds:** Confirm the non-refundable treatment of platform fees in cinema agreements and payment-provider flows, including any legal or contractual exceptions.
+20. **Price corrections during checkout:** Any listing correction ends checkouts in progress for that show, even when only the price changed. Should a price-only correction let those customers finish, and at which price?
+21. **Operator roles and permissions:** The pilot has one staff role per cinema. Which roles and permissions are needed (for example, view-only staff), and who creates and removes staff accounts?
+22. **Account sign-in and shared devices:** Is email and password the right sign-in method for launch? After a customer signs out on a shared device, should bookings made on that device stay visible there?
 
 ## 16. Revision history
 
@@ -282,3 +299,4 @@ The initial product must support Arabic and English, protect customer contact an
 |---|---|---|
 | 0.1 | 2026-09-25 | Initial BRD draft from discovery answers; unresolved items captured for follow-up. |
 | 0.2 | 2026-10-01 | Bookings capped at 10 seats (sections 4.1 and 7.2). |
+| 0.3 | 2026-10-01 | Pilot defaults from the new app recorded as "Pilot:" notes: accounts with booking history (7.3), free seat choice (7.1), "Use my location" distance sort (7.1), resale (11), help and support page (7.6), and the cinema operator portal with show-change notices (7.5, 9). The app also gained its icon and splash screen, and the new app and API now deploy on Vercel. Open decisions 20 to 22 added. |
