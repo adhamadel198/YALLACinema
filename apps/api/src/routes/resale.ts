@@ -40,20 +40,37 @@ function sellerView(store: Store, l: Listing, lang: Lang) {
   };
 }
 
+/** How long the cinema gets to answer a reactivation before it is retried on a later sweep. */
+export const REACTIVATE_TIMEOUT_MS = 10_000;
+
+/** Rejects if `p` takes longer than `ms`. */
+function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+  let timer: NodeJS.Timeout | undefined;
+  const late = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`No answer after ${ms} ms`)), ms);
+    timer.unref();
+  });
+  return Promise.race([p, late]).finally(() => clearTimeout(timer));
+}
+
 /**
  * Listings close when their show starts (BRD 11). Like holds, this happens lazily, before requests that show
- * tickets or listings. Unsold tickets stay 'pending-reactivation' until the cinema confirms they work again,
- * so the seller and a buyer can never both use one; until then support is alerted through the log.
+ * tickets or listings: closing is a quick database update, so requests wait for it. Unsold tickets stay
+ * 'pending-reactivation' until the cinema confirms they work again, so the seller and a buyer can never both
+ * use one; until then support is alerted through the log. Asking the cinema can be slow, so it runs in the
+ * background, one run at a time, and never holds up a request.
  */
-export function resaleSweep(resale: Resale, cinema: CinemaIntegration, log: FastifyBaseLogger) {
+export function resaleSweep(resale: Resale, cinema: CinemaIntegration, log: FastifyBaseLogger, { reactivateTimeoutMs = REACTIVATE_TIMEOUT_MS } = {}) {
   let running: Promise<void> | undefined;
+  let reactivating: Promise<void> | undefined;
+  // Each instance retries once soon after it starts, so tickets are retried even if instances are short-lived.
   let lastRetry = -Infinity;
   const reactivate = async (tickets: TicketRef[]) => {
     const byShow = new Map<string, TicketRef[]>();
     for (const t of tickets) byShow.set(t.showtimeId, [...(byShow.get(t.showtimeId) ?? []), t]);
     for (const [showtimeId, group] of byShow) {
       const result = cinema.resale
-        ? await cinema.resale.reactivate({ showtimeId, tickets: group.map(({ seat, qr }) => ({ seat, qr })) })
+        ? await withTimeout(cinema.resale.reactivate({ showtimeId, tickets: group.map(({ seat, qr }) => ({ seat, qr })) }), reactivateTimeoutMs)
           .catch((e: Error) => ({ ok: false as const, reason: e.message }))
         : { ok: false as const, reason: 'This cinema integration has no resale support' };
       if (result.ok) await resale.reactivated(group.map((t) => t.id));
@@ -61,17 +78,25 @@ export function resaleSweep(resale: Resale, cinema: CinemaIntegration, log: Fast
         'Resale: the cinema has not reactivated unsold tickets from a closed listing. Tell the owners and support.');
     }
   };
+  /** Reactivates in the background; the caller checks no run is going. */
+  const startReactivating = (tickets: () => Promise<TicketRef[]>) => {
+    reactivating = tickets().then(reactivate)
+      .catch((e) => log.error(e, 'Resale: reactivating unsold tickets failed'))
+      .finally(() => { reactivating = undefined; });
+  };
   const sweep = async () => {
     for (const sale of await resale.releaseStale())
       log.error(sale, 'Resale: a purchase did not finish, so its tickets went back on sale. Check the payment provider for a charge under this reference and refund it.');
     const closed = await resale.closeStarted();
-    // Tickets the cinema didn't reactivate are retried at most once a minute.
+    // One run at a time. Tickets the cinema didn't reactivate, or that closed while a run was going, are
+    // retried at most once a minute.
+    if (reactivating) return;
     const now = resale.now().getTime();
     if (now - lastRetry >= 60_000) {
       lastRetry = now;
-      await reactivate(await resale.awaitingReactivation());
+      startReactivating(() => resale.awaitingReactivation());
     } else if (closed.length) {
-      await reactivate(closed);
+      startReactivating(async () => closed);
     }
   };
   const run = () => (running ??= sweep().catch((e) => log.error(e, 'Resale: closing started listings failed')).finally(() => { running = undefined; }));

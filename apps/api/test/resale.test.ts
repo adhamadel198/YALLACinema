@@ -3,11 +3,14 @@ import assert from 'node:assert/strict';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import type { FastifyBaseLogger, FastifyRequest } from 'fastify';
 import { buildApp } from '../src/app.ts';
 import { createDb, isUniqueViolation, type Db } from '../src/db/index.ts';
 import { sandboxCinema, type CinemaIntegration, type CinemaResale } from '../src/integrations/cinema.ts';
 import { sandboxPayments, type PaymentProvider } from '../src/integrations/payments.ts';
 import { DEMO_STAFF_PASSWORD, demoStaffEmail } from '../src/data/operator.ts';
+import { Resale } from '../src/data/resale.ts';
+import { resaleSweep } from '../src/routes/resale.ts';
 
 type App = Awaited<ReturnType<typeof buildApp>>;
 type Headers = Record<string, string>;
@@ -18,6 +21,15 @@ const wallet = { kind: 'wallet', mobile: '010 1234 5678' };
 
 function cinemaWith(resale: Partial<CinemaResale>): CinemaIntegration {
   return { ...sandboxCinema, resale: { ...sandboxCinema.resale!, ...resale } };
+}
+
+/** Reactivation runs in the background after the request that starts it, so its outcome is polled for. */
+async function eventually(check: () => Promise<boolean>, what: string) {
+  for (let i = 0; i < 200; i++) {
+    if (await check()) return;
+    await new Promise((r) => setTimeout(r, 10));
+  }
+  assert.fail(`Timed out waiting for ${what}`);
 }
 
 /**
@@ -333,7 +345,7 @@ test('listings close when the show starts; the ticket stays blocked until the ci
   s.setNow(start + 30_000);
   assert.equal((await s.statuses(s.tickets.id))[first.seat], 'pending-reactivation');
   s.setNow(start + 61_000);
-  assert.equal((await s.statuses(s.tickets.id))[first.seat], 'valid');
+  await eventually(async () => (await s.statuses(s.tickets.id))[first.seat] === 'valid', 'the ticket to be reactivated');
   assert.deepEqual(asked, [[first.seat], [first.seat]]);
 });
 
@@ -342,8 +354,65 @@ test('with the sandbox cinema an expired listing’s ticket is reactivated strai
   const [first] = s.tickets.tickets;
   await s.list(s.seller.headers, s.tickets.id, [first.id], 100);
   s.setNow(Date.parse(s.tickets.showtime.startsAt) + 1);
-  assert.equal((await s.statuses(s.tickets.id))[first.seat], 'valid');
+  await eventually(async () => (await s.statuses(s.tickets.id))[first.seat] === 'valid', 'the ticket to be reactivated');
   assert.equal((await s.mine(s.seller.headers))[0].status, 'expired');
+});
+
+test('a slow cinema never holds up requests: reactivation runs in the background, one run at a time', async () => {
+  let answer!: (result: { ok: true; confirmation: string }) => void;
+  let asked = 0;
+  const s = await setup({
+    cinema: cinemaWith({ reactivate() { asked++; return new Promise((resolve) => { answer = resolve; }); } }),
+  });
+  const [first] = s.tickets.tickets;
+  await s.list(s.seller.headers, s.tickets.id, [first.id], 100);
+  const start = Date.parse(s.tickets.showtime.startsAt);
+  const quick = <T>(p: Promise<T>) => Promise.race([p, new Promise<never>((_, reject) => {
+    setTimeout(() => reject(new Error('The request waited for the cinema')), 1000).unref();
+  })]);
+
+  s.setNow(start);
+  // The listing is closed before the response, while the cinema is still being asked.
+  assert.equal((await quick(s.statuses(s.tickets.id)))[first.seat], 'pending-reactivation');
+  assert.equal((await quick(s.app.inject({ url: '/v1/me', headers: s.seller.headers }))).statusCode, 200);
+  await eventually(async () => asked === 1, 'the cinema to be asked');
+  // Retries are due, but the first request is still waiting for an answer: no more pile up behind it.
+  s.setNow(start + 61_000);
+  await quick(s.market());
+  s.setNow(start + 122_000);
+  await quick(s.mine(s.seller.headers));
+  assert.equal(asked, 1);
+
+  answer({ ok: true, confirmation: 'R1' });
+  await eventually(async () => (await s.statuses(s.tickets.id))[first.seat] === 'valid', 'the ticket to be reactivated');
+  assert.equal(asked, 1);
+});
+
+test('a reactivation the cinema never answers times out and is retried on a later sweep', async () => {
+  const db = await createDb(undefined, 'memory://');
+  let now = MORNING;
+  const bookingId = '00000000-0000-4000-8000-000000000002';
+  await db.query(
+    `INSERT INTO bookings (id, reference, showtime_id, movie_id, cinema_id, starts_at, format, ticket_price, holder, payment_method, price, payment_ref, cinema_confirmation)
+     VALUES ($1, 'YL-TEST02', 's1', 'm', 'c', '2026-10-01T19:45:00+03:00', 'Standard', 100, '{}', 'card', '{}', 'p', 'c')`, [bookingId]);
+  // A ticket from a listing that closed unsold.
+  await db.query(`INSERT INTO tickets (id, booking_id, showtime_id, seat, qr, status) VALUES ($1, $2, 's1', 'D7', 'YALLA:D7', 'pending-reactivation')`,
+    ['00000000-0000-4000-8000-00000000000d', bookingId]);
+  let asked = 0;
+  const warnings: { reason: string }[] = [];
+  const log = { warn: (o: { reason: string }) => warnings.push(o), error: (e: unknown) => assert.fail(String(e)) } as unknown as FastifyBaseLogger;
+  const cinema = cinemaWith({ reactivate() { asked++; return new Promise(() => {}); } });
+  const sweep = resaleSweep(new Resale(db, () => now), cinema, log, { reactivateTimeoutMs: 20 });
+  const req = { url: '/v1/me' } as FastifyRequest;
+
+  await sweep(req);
+  await eventually(async () => warnings.length === 1, 'the reactivation to time out');
+  assert.equal(asked, 1);
+  assert.match(warnings[0].reason, /No answer after 20 ms/);
+  now += 61_000;
+  await sweep(req);
+  await eventually(async () => asked === 2, 'a retry');
+  await db.close();
 });
 
 test('if the cinema cannot transfer the ticket, the buyer is refunded and the seller keeps a valid ticket', async () => {
