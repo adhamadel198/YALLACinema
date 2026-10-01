@@ -10,6 +10,8 @@ export interface Cinema {
   name: string;
   area: Area;
   detail: string;
+  /** The cinema's cancellation and refund policy, in the request language (BRD 9). */
+  cancellationPolicy: string;
 }
 
 /** Optional filters for GET /v1/movies/:id/showtimes (BRD 7.1). Times are "HH:MM" in Cairo. */
@@ -105,6 +107,8 @@ export interface Booking {
   id: string;
   reference: string;
   holder: Guest;
+  /** The account that owns the tickets; null for a guest booking. */
+  accountId: string | null;
   paymentMethod: PaymentMethod;
   price: Price;
   tickets: { id: string; seat: string; qr: string; status: string }[];

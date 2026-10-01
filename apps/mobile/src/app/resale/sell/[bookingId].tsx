@@ -1,7 +1,7 @@
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState, type ComponentProps } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { ApiError } from '../../../api/client';
+import { api, ApiError } from '../../../api/client';
 import { RESALE_BUYER_FEE, RESALE_SELLER_FEE, resaleApi, sellerReceives, type PayoutDetails, type PayoutMethod } from '../../../api/resale';
 import { useRequest } from '../../../api/useRequest';
 import { Chips } from '../../../components/Chips';
@@ -28,7 +28,7 @@ export default function SellTickets() {
   const { account, ready } = useAuth();
   const { bookingId } = useLocalSearchParams<{ bookingId: string }>();
   const data = useRequest(async () => {
-    const [booking, payout] = await Promise.all([resaleApi.booking(bookingId), account ? resaleApi.payoutMethod() : null]);
+    const [booking, payout] = await Promise.all([api.booking(bookingId), account ? resaleApi.payoutMethod() : null]);
     return { booking, payout };
   }, [bookingId, lang, account?.id]);
 

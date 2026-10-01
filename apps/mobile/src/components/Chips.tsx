@@ -11,7 +11,7 @@ export function Chips<T extends string>({ options, value, onChange, label }: {
       {options.map((o) => {
         const on = o.value === value;
         return (
-          <Pressable key={o.value} onPress={() => onChange(o.value)} accessibilityRole="radio" accessibilityState={{ selected: on }}
+          <Pressable key={o.value} onPress={() => onChange(o.value)} accessibilityRole="radio" aria-checked={on}
             style={[styles.chip, { borderColor: on ? theme.accent : theme.line, backgroundColor: on ? theme.accent : 'transparent' }]}>
             <Text style={{ color: on ? theme.accentInk : theme.ink, fontWeight: '600' }}>{o.label}</Text>
           </Pressable>

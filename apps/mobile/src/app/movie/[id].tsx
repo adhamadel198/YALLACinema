@@ -75,7 +75,7 @@ export default function MovieScreen() {
         })}
       </View>
 
-      <Pressable onPress={() => setFiltersOpen((o) => !o)} accessibilityRole="button" accessibilityState={{ expanded: filtersOpen }}
+      <Pressable onPress={() => setFiltersOpen((o) => !o)} accessibilityRole="button" aria-expanded={filtersOpen}
         style={[styles.filterToggle, { borderColor: activeFilters ? theme.accent : theme.line }]}>
         <Text style={{ color: theme.ink, fontWeight: '700' }}>⚙  {activeFilters ? t.filtersActive(activeFilters) : t.filters}</Text>
         <Text style={{ color: theme.muted }}>{filtersOpen ? '▴' : '▾'}</Text>

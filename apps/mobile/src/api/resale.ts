@@ -57,9 +57,6 @@ export interface PayoutMethod {
   updatedAt: string;
 }
 
-/** A booking with the account that owns it (null for a guest booking), as GET /v1/bookings/:id returns it. */
-export type OwnedBooking = Booking & { accountId: string | null };
-
 export const resaleApi = {
   listings: () => request<MarketListing[]>('/v1/resale/listings'),
   listing: (id: string) => request<MarketListing>(`/v1/resale/listings/${enc(id)}`),
@@ -72,5 +69,4 @@ export const resaleApi = {
   withdraw: (id: string) => request<MyListing>(`/v1/resale/listings/${enc(id)}`, { method: 'DELETE' }),
   buy: (id: string, ticketIds: string[], paymentMethod: PaymentMethod) =>
     request<Booking>(`/v1/resale/listings/${enc(id)}/purchase`, { method: 'POST', body: { ticketIds, paymentMethod } }),
-  booking: (id: string) => request<OwnedBooking>(`/v1/bookings/${enc(id)}`),
 };

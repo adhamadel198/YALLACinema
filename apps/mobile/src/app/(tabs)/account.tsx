@@ -27,7 +27,7 @@ export default function Account() {
         {languages.map((l) => {
           const on = l.value === lang;
           return (
-            <Pressable key={l.value} onPress={() => setLang(l.value)} accessibilityRole="radio" accessibilityState={{ selected: on }}
+            <Pressable key={l.value} onPress={() => setLang(l.value)} accessibilityRole="radio" aria-checked={on}
               style={[styles.option, { borderColor: on ? theme.accent : theme.line, backgroundColor: theme.panel }]}>
               <Text style={{ color: theme.ink, fontWeight: on ? '800' : '500' }}>{l.label}</Text>
             </Pressable>

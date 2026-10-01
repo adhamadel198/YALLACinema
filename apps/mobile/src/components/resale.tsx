@@ -3,21 +3,19 @@ import { Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native'
 import type { Booking } from '../api/types';
 import type { TicketStatus } from '../api/resale';
 import { useAuth } from '../auth';
+import { signInHref } from '../auth/routes';
 import { useI18n } from '../i18n';
 import { useTheme } from '../theme';
 import { Button, Panel } from './ui';
 
-/**
- * Resale needs an account. Until the sign-in screens land, this sends people to the Profile tab.
- * TODO(lead): point at the real sign-in screen when merging.
- */
+/** Resale needs an account: sign in, then come back to this screen. */
 export function SignInPrompt({ text, style }: { text: string; style?: ViewStyle }) {
   const theme = useTheme();
   const { t } = useI18n();
   return (
     <Panel style={style}>
       <Text style={{ color: theme.ink, marginBottom: 12, lineHeight: 21 }}>{text}</Text>
-      <Button title={t.resaleGoSignIn} onPress={() => router.push('/account')} />
+      <Button title={t.resaleGoSignIn} onPress={() => router.push(signInHref())} />
     </Panel>
   );
 }
@@ -61,7 +59,7 @@ export function SeatToggles({ options, selected, onToggle }: {
         const on = selected.includes(o.id);
         return (
           <Pressable key={o.id} disabled={o.disabled} onPress={() => onToggle(o.id)}
-            accessibilityRole="checkbox" accessibilityState={{ checked: on, disabled: o.disabled }}
+            accessibilityRole="checkbox" aria-checked={on} aria-disabled={o.disabled}
             accessibilityLabel={o.note ? `${o.label}, ${o.note}` : o.label}
             style={[styles.toggle, { borderColor: on ? theme.accent : theme.line, backgroundColor: on ? theme.accent : theme.panel }, o.disabled && { opacity: 0.55 }]}>
             <Text style={{ color: on ? theme.accentInk : theme.ink, fontWeight: '800' }}>{on ? `✓ ${o.label}` : o.label}</Text>
@@ -92,7 +90,7 @@ export function HiddenCode({ status: raw }: { status: string }) {
  * The resale part of a ticket screen: its owner can sell tickets that are still valid until the show starts,
  * and sees which are listed or sold.
  */
-export function TicketResale({ booking }: { booking: Booking & { accountId?: string | null } }) {
+export function TicketResale({ booking }: { booking: Booking }) {
   const theme = useTheme();
   const { t } = useI18n();
   const { account, ready } = useAuth();

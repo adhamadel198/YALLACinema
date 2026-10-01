@@ -122,7 +122,7 @@ export default function BuyResale() {
             {methods.map((m) => {
               const on = m.value === method;
               return (
-                <Pressable key={m.value} onPress={() => setMethod(m.value)} accessibilityRole="radio" accessibilityState={{ selected: on }}
+                <Pressable key={m.value} onPress={() => setMethod(m.value)} accessibilityRole="radio" aria-checked={on}
                   style={[styles.method, { borderColor: on ? theme.accent : theme.line, backgroundColor: theme.panel }]}>
                   <Text style={{ color: theme.ink, fontWeight: on ? '800' : '500' }}>{m.label}</Text>
                 </Pressable>
