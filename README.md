@@ -18,6 +18,7 @@ Open `index.html` directly in a browser, or deploy this folder as a static site.
 - `resale.html` — resale marketplace, eligible-ticket listing flow, buyer fees, transfer and expiry previews
 - `support.html` — FAQs and cinema policy information
 - `operator.html` — cinema operator portal preview
+- `shared.js` — shared film and cinema sample data, the site header, and the mobile bottom nav. Every page loads it as the first element in `<body>`; set `data-active`, `data-account` or `data-header` on `<body>` to adjust the header. Film details open with `movie.html?film=<film id>`.
 
 The booking flow is a front-end prototype. It does not connect to cinema inventory, payment processing, email delivery, or a real ticket validation service. Film, cinema, and operator data are illustrative.
 
