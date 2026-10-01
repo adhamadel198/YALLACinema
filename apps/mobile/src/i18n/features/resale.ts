@@ -85,8 +85,8 @@ export const en = {
   resaleSignInToSell: 'Sign in with the account you booked with to sell these tickets.',
   resaleGuestBooking: 'Tickets booked as a guest can’t be resold. Sign in before you book to resell later.',
   resaleCodeHidden: {
-    listed: 'Listed for resale. Withdraw it to use it.',
-    transferred: 'Sold on resale. This code no longer works.',
+    listed: 'On sale in Resale. Withdraw it to use this code.',
+    transferred: 'Replaced by the buyer’s new ticket. This code no longer works.',
     'pending-reactivation': 'Waiting for the cinema to reactivate it.',
     used: 'Already used.',
   } as Record<Exclude<TicketStatus, 'valid'>, string>,
@@ -105,7 +105,7 @@ export const ar: typeof en = {
   resaleGoSignIn: 'سجّل دخول من صفحة حسابي',
   resaleEmptyTitle: 'مفيش تذاكر معروضة دلوقتي',
   resaleEmptyBody: 'التذاكر بتظهر هنا لما حد يعرضها للبيع. ارجع بص تاني قرب معاد العرض.',
-  resalePlusFee: (price) => `${price} + ٥ جنيه رسوم`,
+  resalePlusFee: (price) => `${price} + 5 جنيه رسوم`,
   resaleTicketCount: (n) => (n === 1 ? 'تذكرة واحدة' : n === 2 ? 'تذكرتين' : `${n} تذاكر`),
   resaleYours: 'إعلانك',
 
@@ -170,8 +170,8 @@ export const ar: typeof en = {
   resaleSignInToSell: 'سجّل دخول بالحساب اللي حجزت بيه عشان تبيع التذاكر دي.',
   resaleGuestBooking: 'التذاكر المحجوزة من غير حساب مينفعش تتباع. سجّل دخول قبل ما تحجز لو عايز تبيع بعدين.',
   resaleCodeHidden: {
-    listed: 'معروضة للبيع. اسحبها عشان تستخدمها.',
-    transferred: 'اتباعت. الكود ده مبقاش شغال.',
+    listed: 'اسحبها من إعادة البيع عشان تستخدم الكود ده.',
+    transferred: 'المشتري خد تذكرة جديدة، والكود ده مبقاش شغال.',
     'pending-reactivation': 'مستنية السينما ترجّعها صالحة.',
     used: 'اتستخدمت قبل كده.',
   },

@@ -22,6 +22,21 @@ export function SignInPrompt({ text, style }: { text: string; style?: ViewStyle 
   );
 }
 
+/**
+ * One line of facts joined by " · ", e.g. cinema and date. Each part is its own Text, so Latin names, seat ids
+ * and Arabic words keep their own direction instead of being reordered together, and the row flips in Arabic.
+ */
+export function Parts({ parts, color, style }: { parts: string[]; color: string; style?: ViewStyle }) {
+  return (
+    <View style={[styles.parts, style]}>
+      {parts.flatMap((part, i) => [
+        ...(i ? [<Text key={`dot${i}`} style={{ color }}>·</Text>] : []),
+        <Text key={i} style={{ color }}>{part}</Text>,
+      ])}
+    </View>
+  );
+}
+
 /** A small rounded label, e.g. a listing's status. */
 export function Pill({ label, tone = 'muted' }: { label: string; tone?: 'accent' | 'good' | 'muted' }) {
   const theme = useTheme();
@@ -112,6 +127,7 @@ export function TicketResale({ booking }: { booking: Booking & { accountId?: str
 }
 
 const styles = StyleSheet.create({
+  parts: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 5 },
   pill: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3, alignSelf: 'flex-start' },
   toggles: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   toggle: { borderWidth: 1.5, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 9, minWidth: 72, alignItems: 'center' },

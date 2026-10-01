@@ -3,7 +3,7 @@ import { useCallback } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { resaleApi } from '../../api/resale';
 import { useRequest } from '../../api/useRequest';
-import { Pill, SignInPrompt } from '../../components/resale';
+import { Parts, Pill, SignInPrompt } from '../../components/resale';
 import { Button, Message, Panel } from '../../components/ui';
 import { useAuth } from '../../auth';
 import { showDate } from '../../format';
@@ -62,10 +62,9 @@ export default function Resale() {
               <View style={{ flex: 1 }}>
                 <Text style={[styles.title, { color: theme.ink }]}>{item.showtime.movie.title}</Text>
                 <Text style={{ color: theme.muted }}>{item.showtime.cinema.name}</Text>
-                <Text style={{ color: theme.ink, marginTop: 4 }}>{showDate(item.showtime.startsAt, t)} · {item.showtime.format}</Text>
-                <Text style={{ color: theme.ink, marginTop: 2 }}>
-                  {t.seatsList(describeSeats(item.tickets.map((x) => x.seat)))} · {t.resaleTicketCount(item.tickets.length)}
-                </Text>
+                <Parts parts={[showDate(item.showtime.startsAt, t), item.showtime.format]} color={theme.ink} style={{ marginTop: 4 }} />
+                <Parts parts={[t.seatsList(describeSeats(item.tickets.map((x) => x.seat))), t.resaleTicketCount(item.tickets.length)]}
+                  color={theme.ink} style={{ marginTop: 2 }} />
               </View>
             </View>
             <View style={[styles.row, styles.footer, { borderColor: theme.line }]}>

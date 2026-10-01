@@ -133,7 +133,8 @@ export default function SellTickets() {
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
         <Panel>
           <Text style={[styles.title, { color: theme.ink }]}>{b.showtime.movie.title}</Text>
-          <Text style={{ color: theme.muted, marginBottom: 10 }}>{b.showtime.cinema.name} · {showDate(b.showtime.startsAt, t)}</Text>
+          <Text style={{ color: theme.muted }}>{b.showtime.cinema.name}</Text>
+          <Text style={{ color: theme.muted, marginBottom: 10 }}>{showDate(b.showtime.startsAt, t)}</Text>
           <Text style={{ color: theme.ink }}>{t.resaleYouPaid(t.egp(paid))}</Text>
         </Panel>
 

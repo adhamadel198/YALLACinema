@@ -72,7 +72,8 @@ function ListingCard({ listing: l, onChanged }: { listing: MyListing; onChanged:
         <Text style={[styles.title, { color: theme.ink }]}>{l.showtime.movie.title}</Text>
         <Pill label={t.resaleStatus[l.status]} tone={tone[l.status]} />
       </View>
-      <Text style={{ color: theme.muted }}>{l.showtime.cinema.name} · {showDate(l.showtime.startsAt, t)}</Text>
+      <Text style={{ color: theme.muted }}>{l.showtime.cinema.name}</Text>
+      <Text style={{ color: theme.muted }}>{showDate(l.showtime.startsAt, t)}</Text>
       <Text style={{ color: theme.ink, marginTop: 8, fontWeight: '700' }}>{t.resalePriceEach(t.egp(l.price))}</Text>
       <Text style={{ color: theme.muted, marginTop: 2 }}>{t.resaleYouReceiveEach(t.egp(l.sellerReceives))}</Text>
 

@@ -33,9 +33,13 @@ export default function BuyResale() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
 
-  // Everything still for sale starts selected; seats someone else bought drop out on reload.
+  // Everything for sale starts selected; seats someone else bought meanwhile drop out of the choice on reload.
   const available = listing.data?.tickets.map((x) => x.ticketId).join();
-  useEffect(() => { if (available) setSelected(available.split(',')); }, [available]);
+  useEffect(() => {
+    if (!available) return;
+    const ids = available.split(',');
+    setSelected((s) => (s.length ? s.filter((x) => ids.includes(x)) : ids));
+  }, [available]);
 
   const title = <Stack.Screen options={{ title: t.resaleBuyTitle }} />;
   if (listing.error && !listing.data) return <>{title}<Message text={t.loadFailed} onRetry={listing.reload} /></>;
