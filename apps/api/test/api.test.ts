@@ -166,11 +166,6 @@ test('checkout requires guest details and policy acceptance', async () => {
   assert.equal(noPolicy.statusCode, 400);
 });
 
-test('unbuilt features answer 501', async () => {
-  const app = await buildApp();
-  assert.equal((await app.inject({ method: 'GET', url: '/v1/resale/listings' })).statusCode, 501);
-});
-
 test('listings come back in Arabic when asked', async () => {
   const app = await buildApp();
   const headers = { 'accept-language': 'ar-EG,ar;q=0.9' };

@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync } from 'node:fs';
+import { mkdirSync, readdirSync, readFileSync } from 'node:fs';
 import { PGlite } from '@electric-sql/pglite';
 import pg from 'pg';
 
@@ -9,13 +9,18 @@ export interface Queryable {
 }
 
 export interface Db extends Queryable {
+  /** 'pglite' is the embedded database used in development, tests and previews; 'postgres' is a real server. */
+  kind: 'postgres' | 'pglite';
   /** Runs a multi-statement script without parameters (the schema). */
   exec(sql: string): Promise<void>;
   transaction<T>(fn: (tx: Queryable) => Promise<T>): Promise<T>;
   close(): Promise<void>;
 }
 
-const schema = readFileSync(new URL('./schema.sql', import.meta.url), 'utf8');
+/** Every file in schema/, in name order. Each statement must be safe to run again (IF NOT EXISTS). */
+const schemaDir = new URL('./schema/', import.meta.url);
+const schema = readdirSync(schemaDir).filter((f) => f.endsWith('.sql')).sort()
+  .map((f) => readFileSync(new URL(f, schemaDir), 'utf8')).join('\n');
 
 /** Postgres error code for a unique or primary key violation. */
 export const isUniqueViolation = (e: unknown) => (e as { code?: string })?.code === '23505';
@@ -33,6 +38,7 @@ export async function createDb(url = process.env.DATABASE_URL, pgliteDir = proce
 function postgres(url: string): Db {
   const pool = new pg.Pool({ connectionString: url });
   return {
+    kind: 'postgres',
     query: (sql, params) => pool.query(sql, params as unknown[]) as never,
     exec: async (sql) => { await pool.query(sql); },
     async transaction(fn) {
@@ -57,6 +63,7 @@ async function pglite(dataDir: string): Promise<Db> {
   if (!dataDir.includes('://')) mkdirSync(dataDir, { recursive: true });
   const lite = await PGlite.create(dataDir);
   return {
+    kind: 'pglite',
     query: (sql, params) => lite.query(sql, params) as never,
     exec: async (sql) => { await lite.exec(sql); },
     transaction: (fn) => lite.transaction((tx) => fn({ query: (sql, params) => tx.query(sql, params) as never })),

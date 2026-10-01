@@ -1,22 +1,22 @@
 import { randomInt, randomUUID } from 'node:crypto';
-import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
+import type { Auth } from '../auth.ts';
+import type { Accounts } from '../data/accounts.ts';
 import type { Store } from '../data/store.ts';
 import { bookingView, showtimeSummary, snapshotOf } from '../data/views.ts';
 import { langOf } from '../data/i18n.ts';
 import { MAX_SEATS_PER_BOOKING } from '../domain/limits.ts';
 import { bookingTotal } from '../domain/pricing.ts';
+import { emailSchema, mobileSchema, nameSchema } from './schemas.ts';
 import type { Booking, Guest, PaymentMethod } from '../domain/types.ts';
 import type { CinemaIntegration } from '../integrations/cinema.ts';
 import type { PaymentProvider } from '../integrations/payments.ts';
-
-const notYet = (reply: FastifyReply, what: string) =>
-  reply.code(501).send({ error: `${what} is not implemented yet`, see: 'apps/api/README.md' });
 
 /** Short code printed on the ticket, e.g. YL-K7Q2M9. */
 const bookingReference = () =>
   'YL-' + Array.from({ length: 6 }, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[randomInt(32)]).join('');
 
-type Deps = { store: Store; payments: PaymentProvider; cinema: CinemaIntegration };
+type Deps = { store: Store; payments: PaymentProvider; cinema: CinemaIntegration; accounts: Accounts; auth: Auth };
 
 /**
  * Who is checking out. The app sends a random per-install id (X-Client-Id); without it, the IP address.
@@ -74,11 +74,7 @@ export async function bookingRoutes(app: FastifyInstance, { store, payments, cin
           holdId: { type: 'string', format: 'uuid' },
           guest: {
             type: 'object', required: ['name', 'email', 'mobile'],
-            properties: {
-              name: { type: 'string', minLength: 2, maxLength: 100 },
-              email: { type: 'string', pattern: '^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$', maxLength: 200 },
-              mobile: { type: 'string', pattern: '^\\+?[0-9 ]{8,16}$' },
-            },
+            properties: { name: nameSchema, email: emailSchema, mobile: mobileSchema },
           },
           paymentMethod: { type: 'string', enum: ['card', 'wallet'] },
           acceptPolicy: { const: true },
@@ -123,18 +119,4 @@ export async function bookingRoutes(app: FastifyInstance, { store, payments, cin
     const booking = await store.booking(req.params.id);
     return booking ? bookingView(store, booking, langOf(req)) : reply.code(404).send({ error: 'Booking not found' });
   });
-
-  // Accounts are optional for booking but required for resale (BRD 7.3, 11).
-  app.post('/v1/auth/sign-in', async (_req, reply) => notYet(reply, 'Sign-in'));
-  app.get('/v1/me', async (_req, reply) => notYet(reply, 'Accounts'));
-
-  // Resale marketplace (BRD 11). Pricing rules live in src/domain/pricing.ts.
-  app.get('/v1/resale/listings', async (_req, reply) => notYet(reply, 'Resale marketplace'));
-  app.post('/v1/resale/listings', async (_req, reply) => notYet(reply, 'Resale listing'));
-  app.delete('/v1/resale/listings/:id', async (_req, reply) => notYet(reply, 'Resale withdrawal'));
-  app.post('/v1/resale/listings/:id/purchase', async (_req, reply) => notYet(reply, 'Resale purchase'));
-
-  // Cinema operator portal (BRD 7.5).
-  app.get('/v1/operator/bookings', async (_req, reply) => notYet(reply, 'Operator bookings'));
-  app.patch('/v1/operator/showtimes/:id', async (_req, reply) => notYet(reply, 'Operator listing correction'));
 }

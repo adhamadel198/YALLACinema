@@ -21,8 +21,8 @@ await build({
   logLevel: 'warning',
 });
 
-// src/db/index.ts reads the schema next to itself, which in the bundle is the function folder.
-cpSync(join(root, 'src/db/schema.sql'), join(out, 'schema.sql'));
+// src/db/index.ts reads schema/ next to itself, which in the bundle is the function folder.
+cpSync(join(root, 'src/db/schema'), join(out, 'schema'), { recursive: true });
 cpSync(join(root, 'node_modules/@electric-sql/pglite'), join(out, 'node_modules/@electric-sql/pglite'), { recursive: true });
 writeFileSync(join(out, 'package.json'), JSON.stringify({ type: 'module' }));
 writeFileSync(join(out, '.vc-config.json'), JSON.stringify({

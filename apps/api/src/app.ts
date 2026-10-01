@@ -5,6 +5,11 @@ import { createDb, type Db } from './db/index.ts';
 import { Store } from './data/store.ts';
 import { catalogRoutes } from './routes/catalog.ts';
 import { bookingRoutes } from './routes/booking.ts';
+import { accountRoutes } from './routes/accounts.ts';
+import { resaleRoutes } from './routes/resale.ts';
+import { operatorRoutes } from './routes/operator.ts';
+import { Accounts } from './data/accounts.ts';
+import { authFor } from './auth.ts';
 import { sandboxCinema, type CinemaIntegration } from './integrations/cinema.ts';
 import { sandboxPayments, type PaymentProvider } from './integrations/payments.ts';
 
@@ -18,13 +23,18 @@ export async function buildApp({
 }: Options = {}) {
   const database = db ?? (await createDb(undefined, 'memory://'));
   const store = new Store(database, clock);
+  const accounts = new Accounts(database, clock);
+  const auth = authFor(accounts);
   const app = Fastify({ logger, trustProxy });
   app.addHook('onClose', () => database.close());
-  await app.register(cors, { origin: true, methods: ['GET', 'POST', 'PATCH', 'DELETE'], allowedHeaders: ['Content-Type', 'Accept-Language', 'X-Client-Id'] });
+  await app.register(cors, { origin: true, methods: ['GET', 'POST', 'PATCH', 'DELETE'], allowedHeaders: ['Content-Type', 'Accept-Language', 'X-Client-Id', 'Authorization'] });
   // Only routes that opt in (config.rateLimit) are limited.
   await app.register(rateLimit, { global: false });
   app.get('/health', async () => ({ ok: true }));
   await app.register(catalogRoutes, { store });
-  await app.register(bookingRoutes, { store, payments, cinema });
+  await app.register(bookingRoutes, { store, payments, cinema, accounts, auth });
+  await app.register(accountRoutes, { store, accounts, auth });
+  await app.register(resaleRoutes, { store, accounts, auth, payments, cinema });
+  await app.register(operatorRoutes, { store, accounts, auth });
   return app;
 }

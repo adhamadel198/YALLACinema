@@ -2,13 +2,16 @@ import { Stack } from 'expo-router';
 import { LocaleDirContext } from 'expo-router/react-navigation';
 import { StatusBar } from 'expo-status-bar';
 import { View } from 'react-native';
+import { AuthProvider } from '../auth';
 import { LanguageProvider, useI18n } from '../i18n';
 import { useTheme } from '../theme';
 
 export default function RootLayout() {
   return (
     <LanguageProvider>
-      <AppStack />
+      <AuthProvider>
+        <AppStack />
+      </AuthProvider>
     </LanguageProvider>
   );
 }
@@ -33,6 +36,7 @@ function AppStack() {
           <Stack.Screen name="showtime/[id]" options={{ title: t.chooseSeats }} />
           <Stack.Screen name="checkout/[holdId]" options={{ title: t.checkout }} />
           <Stack.Screen name="ticket/[id]" options={{ title: t.yourTicket }} />
+          {/* Newer screens set their own title with <Stack.Screen options> inside the screen. */}
         </Stack>
       </View>
     </LocaleDirContext.Provider>

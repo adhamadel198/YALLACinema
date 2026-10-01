@@ -1,5 +1,13 @@
 // UI copy in English and Arabic. Arabic follows the Egyptian tone of the web prototype's i18n.js.
 // Movie and cinema listings are translated by the API (Accept-Language), not here.
+// Each feature keeps its own copy in features/*.ts; this file merges them.
+
+import * as accounts from './features/accounts';
+import * as location from './features/location';
+import * as operator from './features/operator';
+import * as resale from './features/resale';
+import * as seatChoice from './features/seatChoice';
+import * as support from './features/support';
 
 const en = {
   tabMovies: 'Movies',
@@ -103,7 +111,7 @@ const en = {
   seatsList: (seats: string) => `Seats ${seats}`,
 
   profileTitle: 'Profile',
-  profileBody: 'Sign-in is optional for booking and required for resale. Accounts are not wired up yet.',
+  profileBody: 'Sign-in is optional for booking and required for resale.',
   language: 'Language',
   restartNote: 'On iOS and Android, restart the app to finish switching direction everywhere.',
 
@@ -112,9 +120,9 @@ const en = {
   months: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
 };
 
-export type Strings = typeof en;
+type BaseStrings = typeof en;
 
-const ar: Strings = {
+const ar: BaseStrings = {
   tabMovies: 'الأفلام',
   tabTickets: 'تذاكري',
   tabProfile: 'حسابي',
@@ -216,7 +224,7 @@ const ar: Strings = {
   seatsList: (seats) => `الكراسي ${seats}`,
 
   profileTitle: 'حسابي',
-  profileBody: 'تقدر تحجز من غير حساب، لكن إعادة البيع محتاجة حساب. الحسابات لسه مش شغالة.',
+  profileBody: 'تقدر تحجز من غير حساب، لكن إعادة البيع محتاجة حساب.',
   language: 'اللغة',
   restartNote: 'على iOS وأندرويد، اقفل التطبيق وافتحه تاني عشان الاتجاه يتغير في كل حتة.',
 
@@ -225,5 +233,9 @@ const ar: Strings = {
   months: ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'],
 };
 
+const allEn = { ...en, ...accounts.en, ...resale.en, ...seatChoice.en, ...location.en, ...support.en, ...operator.en };
+const allAr: Strings = { ...ar, ...accounts.ar, ...resale.ar, ...seatChoice.ar, ...location.ar, ...support.ar, ...operator.ar };
+
+export type Strings = typeof allEn;
 export type Lang = 'en' | 'ar';
-export const strings: Record<Lang, Strings> = { en, ar };
+export const strings: Record<Lang, Strings> = { en: allEn, ar: allAr };

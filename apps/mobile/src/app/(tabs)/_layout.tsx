@@ -22,6 +22,7 @@ export default function TabsLayout() {
       }}
     >
       <Tabs.Screen name="index" options={{ title: t.tabMovies, tabBarIcon: icon('▶') }} />
+      <Tabs.Screen name="resale" options={{ title: t.tabResale, tabBarIcon: icon('⇄') }} />
       <Tabs.Screen name="tickets" options={{ title: t.tabTickets, tabBarIcon: icon('▭') }} />
       <Tabs.Screen name="account" options={{ title: t.tabProfile, tabBarIcon: icon('◯') }} />
     </Tabs>
