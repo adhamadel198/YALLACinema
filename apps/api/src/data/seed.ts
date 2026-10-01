@@ -40,9 +40,9 @@ export const movies: Movie[] = [
 ];
 
 export const cinemas: Cinema[] = [
-  { id: 'vox-moe', name: 'VOX Cinemas · Mall of Egypt', shortName: 'VOX', area: '6th of October', detail: 'Mall of Egypt · Standard · Dolby Atmos', location: { lat: 29.972, lon: 31.016 } },
-  { id: 'reel-cfc', name: 'Reel Cinemas · Cairo Festival City', shortName: 'Reel', area: 'New Cairo', detail: 'Cairo Festival City · Premium · IMAX', location: { lat: 30.029, lon: 31.408 } },
-  { id: 'galaxy-maadi', name: 'Galaxy Cinema · Maadi', shortName: 'Galaxy', area: 'Maadi', detail: 'Maadi · Standard · Dolby sound', location: { lat: 29.96, lon: 31.26 } },
+  { id: 'vox-moe', name: 'VOX Cinemas · Mall of Egypt', shortName: 'VOX', area: '6th of October', detail: 'Mall of Egypt · Standard · Dolby Atmos', location: { lat: 29.972, lon: 31.016 }, cancellationPolicy: 'Tickets can be cancelled up to 3 hours before the show for a refund of the ticket price. Platform fees are non-refundable.' },
+  { id: 'reel-cfc', name: 'Reel Cinemas · Cairo Festival City', shortName: 'Reel', area: 'New Cairo', detail: 'Cairo Festival City · Premium · IMAX', location: { lat: 30.029, lon: 31.408 }, cancellationPolicy: 'Tickets are non-refundable unless the cinema cancels or changes the show.' },
+  { id: 'galaxy-maadi', name: 'Galaxy Cinema · Maadi', shortName: 'Galaxy', area: 'Maadi', detail: 'Maadi · Standard · Dolby sound', location: { lat: 29.96, lon: 31.26 }, cancellationPolicy: 'Tickets can be cancelled up to 24 hours before the show for a refund of the ticket price. Platform fees are non-refundable.' },
 ];
 
 /** Approximate centre of each selectable area, used when the customer picks an area instead of sharing location. */

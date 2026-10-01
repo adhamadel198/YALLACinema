@@ -18,7 +18,7 @@ cd apps/mobile && npm install && npm start
 | API | Node.js + Fastify, TypeScript via `tsx` | JSON-schema validation on every route, fast, and simple to test with `app.inject` |
 | Data | In-memory seed data from this prototype | Placeholder for Postgres and the cinema integrations |
 
-What works end to end today: movie discovery and the movie-first seat-group search (exact connected/separated matching), plus seat holds in the API. Bookings, payments, accounts, resale and the operator portal are stubbed (`501`). See each app's README for detail.
+What works end to end today: movie discovery, the movie-first seat-group search (exact connected/separated matching), seat map, seat holds, guest checkout and QR tickets. Payment and cinema confirmation are sandboxed, and data is in memory. Accounts, resale and the operator portal are stubbed (`501`). The web pilot will ship from the same Expo app (`npx expo export --platform web`). See each app's README for detail.
 
 ## Web prototype
 

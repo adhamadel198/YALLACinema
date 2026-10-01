@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { Store } from '../data/store.ts';
 import { areaCentres } from '../data/seed.ts';
+import { showtimeSummary } from '../data/views.ts';
 import { bestGroup, findSeatGroups } from '../domain/seats.ts';
 import type { Area, Arrangement } from '../domain/types.ts';
 
@@ -96,6 +97,9 @@ export async function catalogRoutes(app: FastifyInstance, { store }: { store: St
         : a.startsAt.localeCompare(b.startsAt));
     return { movieId: movie.id, request: { count, arrangement }, results };
   });
+
+  app.get<{ Params: { id: string } }>('/v1/showtimes/:id', async (req, reply) =>
+    store.showtime(req.params.id) ? showtimeSummary(store, req.params.id) : reply.code(404).send({ error: 'Showtime not found' }));
 
   /** Seat map with the matching groups and the highlighted best group. */
   app.get<{ Params: { id: string }; Querystring: { count: number; arrangement: Arrangement } }>('/v1/showtimes/:id/seats', {

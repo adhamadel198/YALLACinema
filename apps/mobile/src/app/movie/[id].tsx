@@ -1,4 +1,4 @@
-import { Stack, useLocalSearchParams } from 'expo-router';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { api } from '../../api/client';
@@ -13,7 +13,7 @@ const arrangements: { value: Arrangement; label: string }[] = [
   { value: 'separated', label: 'Separated' },
 ];
 
-/** Movie details plus the seat-group showtime search (GET /v1/movies/:id/showtimes). Seat map and checkout are next. */
+/** Movie details plus the seat-group showtime search (GET /v1/movies/:id/showtimes). */
 export default function MovieScreen() {
   const t = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -64,7 +64,9 @@ export default function MovieScreen() {
         </Text>
       )}
       {shows.data?.map((s) => (
-        <View key={s.showtimeId} style={[styles.show, { backgroundColor: t.panel, borderColor: t.line }]}>
+        <Pressable key={s.showtimeId}
+          onPress={() => router.push({ pathname: '/showtime/[id]', params: { id: s.showtimeId, count: String(count), arrangement } })}
+          accessibilityLabel={`${s.cinema.name} at ${s.localTime}`} style={[styles.show, { backgroundColor: t.panel, borderColor: t.line }]}>
           <View style={{ flex: 1 }}>
             <Text style={{ color: t.ink, fontWeight: '800' }}>{s.cinema.name}</Text>
             <Text style={{ color: t.muted, fontSize: 12 }}>{s.cinema.detail}</Text>
@@ -77,7 +79,7 @@ export default function MovieScreen() {
             <Text style={{ color: t.ink, fontWeight: '800', fontSize: 16 }}>{s.localTime}</Text>
             <Text style={{ color: t.muted, fontSize: 12 }}>{s.price} EGP + 5 fee</Text>
           </View>
-        </View>
+        </Pressable>
       ))}
     </ScrollView>
   );

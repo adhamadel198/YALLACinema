@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { Hold, SeatId, Showtime } from '../domain/types.ts';
+import type { Booking, Hold, SeatId, Showtime } from '../domain/types.ts';
 import { buildShowtimes, cinemas, movies } from './seed.ts';
 
 export const HOLD_TTL_MS = 10 * 60 * 1000; // BRD open decision #8; placeholder until agreed with cinemas.
@@ -13,6 +13,7 @@ export class Store {
   readonly cinemas = cinemas;
   readonly showtimes: Showtime[];
   private holds = new Map<string, Hold>();
+  private bookings = new Map<string, Booking>();
 
   constructor(now = new Date(), private clock: () => number = Date.now) {
     this.showtimes = buildShowtimes(now);
@@ -41,6 +42,23 @@ export class Store {
   }
 
   release(holdId: string) { return this.holds.delete(holdId); }
+
+  /** An unexpired hold, or undefined. */
+  getHold(holdId: string) {
+    this.expireHolds();
+    return this.holds.get(holdId);
+  }
+
+  /** Turns a hold into sold seats and records the booking. */
+  saveBooking(holdId: string, booking: Booking) {
+    const hold = this.holds.get(holdId);
+    if (!hold) throw new Error('Hold expired');
+    this.holds.delete(holdId);
+    this.showtime(hold.showtimeId)!.seatMap.unavailable.push(...hold.seats);
+    this.bookings.set(booking.id, booking);
+  }
+
+  booking(id: string) { return this.bookings.get(id); }
 
   private expireHolds() {
     const now = this.clock();

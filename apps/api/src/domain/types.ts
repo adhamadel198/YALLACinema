@@ -22,6 +22,8 @@ export interface Cinema {
   area: Area;
   detail: string;
   location: { lat: number; lon: number };
+  /** Shown before purchase (BRD 9). Sample wording until each cinema's real policy is agreed. */
+  cancellationPolicy: string;
 }
 
 /** A seat id is the row letter plus 1-based column, e.g. "D7". */
@@ -57,4 +59,33 @@ export interface Hold {
   showtimeId: string;
   seats: SeatId[];
   expiresAt: string;
+}
+
+export type PaymentMethod = 'card' | 'wallet';
+
+export interface Guest {
+  name: string;
+  email: string;
+  mobile: string;
+}
+
+export interface Ticket {
+  id: string;
+  seat: SeatId;
+  /** What the cinema scans at the entrance. */
+  qr: string;
+  status: 'valid' | 'listed' | 'pending-reactivation' | 'transferred' | 'used';
+}
+
+export interface Booking {
+  id: string;
+  reference: string;
+  showtimeId: string;
+  holder: Guest;
+  paymentMethod: PaymentMethod;
+  price: { tickets: number; fees: number; total: number };
+  paymentRef: string;
+  cinemaConfirmation: string;
+  tickets: Ticket[];
+  createdAt: string;
 }
