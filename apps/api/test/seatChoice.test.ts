@@ -105,6 +105,18 @@ test('a selection with one seat someone else holds is refused as a whole', async
   await app.close();
 });
 
+test('a seat the cinema has already sold cannot be picked into a selection', async () => {
+  const app = await buildApp();
+  const { showtimeId, map, free } = await roomyShowtime(app);
+  const sold = map.unavailable[0];
+  assert.ok(sold, 'the seed marks some seats as sold at the cinema');
+  const res = await hold(app, showtimeId, [free[0], sold], 'customer-one');
+  assert.equal(res.statusCode, 409);
+  assert.deepEqual(res.json().unavailable, [sold]);
+  assert.equal((await hold(app, showtimeId, [free[0]], 'customer-two')).statusCode, 201);
+  await app.close();
+});
+
 test('free choice keeps the 10-seat cap', async () => {
   const app = await buildApp();
   const { showtimeId, free } = await roomyShowtime(app);
