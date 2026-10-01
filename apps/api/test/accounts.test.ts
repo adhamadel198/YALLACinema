@@ -3,8 +3,11 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { buildApp } from '../src/app.ts';
+import { createDb } from '../src/db/index.ts';
 
 const mona = { name: 'Mona Adel', email: 'Mona@Example.com', mobile: '+20 100 123 4567', password: 'popcorn-2026' };
+const karim = { name: 'Karim Nabil', email: 'karim@example.com', mobile: '01001234567', password: 'nachos-2026' };
+type App = Awaited<ReturnType<typeof buildApp>>;
 const bearer = (token: string) => ({ authorization: `Bearer ${token}` });
 
 test('sign up, sign in, see your account, sign out', async () => {
@@ -28,6 +31,63 @@ test('sign up, sign in, see your account, sign out', async () => {
   assert.equal((await app.inject({ method: 'POST', url: '/v1/auth/sign-out', headers: bearer(token) })).statusCode, 204);
   assert.equal((await app.inject({ url: '/v1/me', headers: bearer(token) })).statusCode, 401);
   assert.equal((await app.inject('/v1/me')).statusCode, 401);
+});
+
+test('sign-up and sign-in are rate limited per client address, whatever X-Client-Id says', async () => {
+  const app = await buildApp();
+  const signIn = (i: number, remoteAddress?: string) => app.inject({
+    method: 'POST', url: '/v1/auth/sign-in', remoteAddress,
+    // A new X-Client-Id every time, and a new email so only the per-address limit applies.
+    headers: { 'x-client-id': `rotating-client-${i}` }, payload: { email: `guess${i}@example.com`, password: 'wrong-password' },
+  });
+  const codes = [];
+  for (let i = 0; i < 11; i++) codes.push((await signIn(i)).statusCode);
+  assert.deepEqual(codes, [...Array(10).fill(401), 429]);
+  assert.equal((await signIn(11, '203.0.113.7')).statusCode, 401); // Another address has its own allowance.
+
+  const signUps = [];
+  for (let i = 0; i < 11; i++) {
+    signUps.push((await app.inject({ method: 'POST', url: '/v1/auth/sign-up', headers: { 'x-client-id': `rotating-client-${i}` },
+      payload: { ...mona, email: `new${i}@example.com` } })).statusCode);
+  }
+  assert.deepEqual(signUps, [...Array(10).fill(201), 429]);
+});
+
+test('ten failed sign-ins lock an email for 15 minutes on every API instance and from every address', async () => {
+  let now = Date.parse('2026-10-01T06:00:00Z');
+  const db = await createDb(undefined, 'memory://');
+  const one = await buildApp({ db, clock: () => now });
+  const two = await buildApp({ db, clock: () => now });
+  await one.inject({ method: 'POST', url: '/v1/auth/sign-up', payload: mona });
+  let addresses = 0;
+  // Each attempt from a new address, so the per-address limit never applies.
+  const signIn = (app: App, email: string, password: string) =>
+    app.inject({ method: 'POST', url: '/v1/auth/sign-in', payload: { email, password }, remoteAddress: `198.51.100.${++addresses}` });
+
+  // A successful sign-in is not a failure.
+  for (let i = 0; i < 9; i++) assert.equal((await signIn(i % 2 ? one : two, mona.email, 'wrong-password')).statusCode, 401);
+  assert.equal((await signIn(one, mona.email, mona.password)).statusCode, 200);
+  assert.equal((await signIn(two, mona.email, 'wrong-password')).statusCode, 401);
+
+  // Ten failures: refused even with the right password, on either instance, however the email is typed.
+  const locked = await signIn(two, mona.email, mona.password);
+  assert.equal(locked.statusCode, 429);
+  assert.equal(locked.json().error, 'Too many failed sign-ins for this email. Please try again in 15 minutes.');
+  assert.equal(locked.headers['retry-after'], '900');
+  assert.equal((await signIn(one, ' MONA@example.COM ', mona.password)).statusCode, 429);
+
+  // Other emails are unaffected, and an email without an account locks the same way, so the lock reveals nothing.
+  await one.inject({ method: 'POST', url: '/v1/auth/sign-up', payload: karim });
+  assert.equal((await signIn(one, karim.email, karim.password)).statusCode, 200);
+  for (let i = 0; i < 10; i++) assert.equal((await signIn(one, 'nobody@example.com', 'wrong-password')).statusCode, 401);
+  assert.equal((await signIn(two, 'nobody@example.com', 'wrong-password')).json().error, locked.json().error);
+
+  // Refused attempts don't extend the lock: it ends 15 minutes after the failures.
+  now += 14 * 60 * 1000;
+  assert.equal((await signIn(one, mona.email, mona.password)).json().error, 'Too many failed sign-ins for this email. Please try again in 1 minute.');
+  now += 60 * 1000;
+  assert.equal((await signIn(two, mona.email, mona.password)).statusCode, 200);
+  await one.close(); // Closes the shared database.
 });
 
 test('sessions expire after 30 days', async () => {
@@ -58,8 +118,6 @@ test('a booking made while signed in belongs to the account; a guest booking to 
   assert.equal((await book(groups[1].seats[0], { 'x-client-id': 'guest-device-1' })).accountId, null);
 });
 
-type App = Awaited<ReturnType<typeof buildApp>>;
-const karim = { name: 'Karim Nabil', email: 'karim@example.com', mobile: '01001234567', password: 'nachos-2026' };
 const signUp = async (app: App, who: typeof mona) =>
   (await app.inject({ method: 'POST', url: '/v1/auth/sign-up', payload: who })).json() as { token: string; account: { id: string } };
 

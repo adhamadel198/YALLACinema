@@ -10,6 +10,12 @@ import { emailSchema, mobileSchema, nameSchema } from './schemas.ts';
 type Deps = { store: Store; accounts: Accounts; auth: Auth };
 
 const limit = (max: number) => ({ rateLimit: { max, timeWindow: '10 minutes', keyGenerator: clientIdOf } });
+/**
+ * Sign-up and sign-in are limited per client address (the rate-limit plugin's default key; IPv6 per /64), not
+ * per X-Client-Id, which a client can change on every request. The count is per API instance; sign-in also
+ * limits failures per email in the database (Accounts.signIn), which holds across instances.
+ */
+const perAddress = (max: number) => ({ rateLimit: { max, timeWindow: '10 minutes' } });
 const signedIn = (token: string, account: Account) => ({ token, account });
 
 /**
@@ -18,7 +24,7 @@ const signedIn = (token: string, account: Account) => ({ token, account });
  */
 export async function accountRoutes(app: FastifyInstance, { store, accounts, auth }: Deps) {
   app.post<{ Body: { name: string; email: string; mobile: string; password: string } }>('/v1/auth/sign-up', {
-    config: limit(10),
+    config: perAddress(10),
     schema: {
       body: {
         type: 'object', required: ['name', 'email', 'mobile', 'password'],
@@ -32,14 +38,21 @@ export async function accountRoutes(app: FastifyInstance, { store, accounts, aut
   });
 
   app.post<{ Body: { email: string; password: string } }>('/v1/auth/sign-in', {
-    config: limit(10),
+    config: perAddress(10),
     schema: {
       body: { type: 'object', required: ['email', 'password'], properties: { email: { type: 'string', maxLength: 200 }, password: { type: 'string', maxLength: 200 } } },
     },
   }, async (req, reply) => {
-    const account = await accounts.verify(req.body.email, req.body.password);
-    if (!account) return reply.code(401).send({ error: 'Wrong email or password.' });
-    return signedIn(await accounts.startSession(account.id), account);
+    const result = await accounts.signIn(req.body.email, req.body.password);
+    if ('retryAfterMs' in result) {
+      const minutes = Math.ceil(result.retryAfterMs / 60_000);
+      return reply.code(429).header('retry-after', String(Math.ceil(result.retryAfterMs / 1000))).send({
+        error: `Too many failed sign-ins for this email. Please try again in ${minutes === 1 ? '1 minute' : `${minutes} minutes`}.`,
+        code: 'too-many-failures',
+      });
+    }
+    if ('wrong' in result) return reply.code(401).send({ error: 'Wrong email or password.' });
+    return signedIn(await accounts.startSession(result.account.id), result.account);
   });
 
   app.post('/v1/auth/sign-out', async (req, reply) => {
