@@ -77,10 +77,20 @@ export interface Ticket {
   status: 'valid' | 'listed' | 'pending-reactivation' | 'transferred' | 'used';
 }
 
+/** The showtime as sold, kept with the booking so tickets still read correctly after the listing changes. */
+export interface ShowtimeSnapshot {
+  showtimeId: string;
+  movieId: string;
+  cinemaId: string;
+  startsAt: string;
+  format: string;
+  price: number;
+}
+
 export interface Booking {
   id: string;
   reference: string;
-  showtimeId: string;
+  showtime: ShowtimeSnapshot;
   holder: Guest;
   paymentMethod: PaymentMethod;
   price: { tickets: number; fees: number; total: number };

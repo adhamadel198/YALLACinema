@@ -16,9 +16,11 @@ cd apps/mobile && npm install && npm start
 |---|---|---|
 | App | Expo (managed) + Expo Router, TypeScript | One codebase for iOS, Android and web; Expo Go runs it on a phone with no Xcode/Android Studio; native modules (payments, camera for scanning) are still available through development builds |
 | API | Node.js + Fastify, TypeScript via `tsx` | JSON-schema validation on every route, fast, and simple to test with `app.inject` |
-| Data | In-memory seed data from this prototype | Placeholder for Postgres and the cinema integrations |
+| Data | Postgres (embedded PGlite in development) for holds, bookings and tickets; listings are seed data from this prototype | No database server to install for local work; production points `DATABASE_URL` at Postgres. Listings will come from the cinema integrations |
 
-What works end to end today: movie discovery, the movie-first seat-group search (exact connected/separated matching), seat map, seat holds, guest checkout and QR tickets. Payment and cinema confirmation are sandboxed, and data is in memory. Accounts, resale and the operator portal are stubbed (`501`). The web pilot will ship from the same Expo app (`npx expo export --platform web`). See each app's README for detail.
+CI (`.github/workflows/ci.yml`) runs the API tests and typecheck, and typechecks and bundles the app for web and Android, on every PR.
+
+What works end to end today: movie discovery, the movie-first seat-group search (exact connected/separated matching), seat map, seat holds, guest checkout and QR tickets. Payment and cinema confirmation are sandboxed. Accounts, resale and the operator portal are stubbed (`501`). The web pilot will ship from the same Expo app (`npx expo export --platform web`). See each app's README for detail.
 
 ## Web prototype
 

@@ -48,7 +48,7 @@ export default function SeatScreen() {
       if (e instanceof ApiError && e.status === 409) {
         setNotice(t.seatsJustTaken);
         map.reload();
-      } else setNotice(t.genericError);
+      } else setNotice(e instanceof ApiError && e.status === 429 ? t.tooManyHolds : t.genericError);
     } finally {
       setBusy(false);
     }

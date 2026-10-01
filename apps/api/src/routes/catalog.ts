@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { Store } from '../data/store.ts';
 import { areaCentres } from '../data/seed.ts';
-import { showtimeSummary } from '../data/views.ts';
+import { showtimeSummary, snapshotOf } from '../data/views.ts';
 import { langOf, localizeCinema, localizeFormat, localizeMovie } from '../data/i18n.ts';
 import { bestGroup, findSeatGroups } from '../domain/seats.ts';
 import type { Area, Arrangement } from '../domain/types.ts';
@@ -72,15 +72,16 @@ export async function catalogRoutes(app: FastifyInstance, { store }: { store: St
     const lang = langOf(req);
     const origin = lat != null && lon != null ? { lat, lon } : nearArea ? areaCentres[nearArea] : undefined;
 
-    const results = store.showtimes
-      .filter((s) => s.movieId === movie.id)
+    const candidates = store.showtimes.filter((s) => s.movieId === movie.id);
+    const taken = await store.takenSeats(candidates.map((s) => s.id));
+    const results = candidates
       .filter((s) => !cinemaId || s.cinemaId === cinemaId)
       .filter((s) => !from || localTime(s.startsAt) >= from)
       .filter((s) => !to || localTime(s.startsAt) <= to)
       .flatMap((s) => {
         const cinema = localizeCinema(store.cinema(s.cinemaId)!, lang);
         if (area && cinema.area !== area) return [];
-        const groups = findSeatGroups(s.seatMap, count, arrangement, store.heldSeats(s.id));
+        const groups = findSeatGroups(s.seatMap, count, arrangement, taken.get(s.id));
         if (!groups.length) return [];
         return [{
           showtimeId: s.id, startsAt: s.startsAt, localTime: localTime(s.startsAt), price: s.price, format: localizeFormat(s.format, lang),
@@ -100,8 +101,10 @@ export async function catalogRoutes(app: FastifyInstance, { store }: { store: St
     return { movieId: movie.id, request: { count, arrangement }, results };
   });
 
-  app.get<{ Params: { id: string } }>('/v1/showtimes/:id', async (req, reply) =>
-    store.showtime(req.params.id) ? showtimeSummary(store, req.params.id, langOf(req)) : reply.code(404).send({ error: 'Showtime not found' }));
+  app.get<{ Params: { id: string } }>('/v1/showtimes/:id', async (req, reply) => {
+    const s = store.showtime(req.params.id);
+    return s ? showtimeSummary(store, snapshotOf(s), langOf(req)) : reply.code(404).send({ error: 'Showtime not found' });
+  });
 
   /** Seat map with the matching groups and the highlighted best group. */
   app.get<{ Params: { id: string }; Querystring: { count: number; arrangement: Arrangement } }>('/v1/showtimes/:id/seats', {
@@ -117,7 +120,7 @@ export async function catalogRoutes(app: FastifyInstance, { store }: { store: St
   }, async (req, reply) => {
     const s = store.showtime(req.params.id);
     if (!s) return reply.code(404).send({ error: 'Showtime not found' });
-    const held = store.heldSeats(s.id);
+    const held = (await store.takenSeats([s.id])).get(s.id) ?? [];
     const groups = findSeatGroups(s.seatMap, req.query.count, req.query.arrangement, held);
     return {
       showtimeId: s.id, rows: s.seatMap.rows, cols: s.seatMap.cols,

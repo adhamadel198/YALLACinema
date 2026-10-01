@@ -2,8 +2,9 @@ import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { api } from '../../api/client';
-import type { Arrangement } from '../../api/types';
+import type { Area, Arrangement, ShowtimeFilters } from '../../api/types';
 import { useRequest } from '../../api/useRequest';
+import { Chips } from '../../components/Chips';
 import { Poster } from '../../components/Poster';
 import { Message } from '../../components/ui';
 import { useI18n } from '../../i18n';
@@ -17,7 +18,19 @@ export default function MovieScreen() {
   const [count, setCount] = useState(2);
   const [arrangement, setArrangement] = useState<Arrangement>('either');
   const movie = useRequest(() => api.movie(id), [id, lang]);
-  const shows = useRequest(() => api.showtimes(id, count, arrangement), [id, count, arrangement, lang]);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [area, setArea] = useState<Area | ''>('');
+  const [cinemaId, setCinemaId] = useState('');
+  const [time, setTime] = useState<keyof typeof timeRanges>('any');
+  const [sort, setSort] = useState<'soonest' | 'distance'>('soonest');
+  const [nearArea, setNearArea] = useState<Area | ''>('');
+  const filters: ShowtimeFilters = {
+    area: area || undefined, cinemaId: cinemaId || undefined, ...timeRanges[time],
+    sort: sort === 'distance' && nearArea ? 'distance' : 'soonest', nearArea: sort === 'distance' ? nearArea || undefined : undefined,
+  };
+  const activeFilters = [area, cinemaId, time !== 'any', sort === 'distance'].filter(Boolean).length;
+  const shows = useRequest(() => api.showtimes(id, count, arrangement, filters), [id, count, arrangement, lang, JSON.stringify(filters)]);
+  const cinemas = useRequest(api.cinemas, [lang]);
   const arrangements: { value: Arrangement; label: string }[] = [
     { value: 'either', label: t.either },
     { value: 'connected', label: t.together },
@@ -59,6 +72,40 @@ export default function MovieScreen() {
         })}
       </View>
 
+      <Pressable onPress={() => setFiltersOpen((o) => !o)} accessibilityRole="button" accessibilityState={{ expanded: filtersOpen }}
+        style={[styles.filterToggle, { borderColor: activeFilters ? theme.accent : theme.line }]}>
+        <Text style={{ color: theme.ink, fontWeight: '700' }}>⚙  {activeFilters ? t.filtersActive(activeFilters) : t.filters}</Text>
+        <Text style={{ color: theme.muted }}>{filtersOpen ? '▴' : '▾'}</Text>
+      </Pressable>
+      {filtersOpen && (
+        <View style={[styles.filters, { backgroundColor: theme.panel, borderColor: theme.line }]}>
+          <Text style={[styles.filterLabel, { color: theme.muted }]}>{t.area}</Text>
+          <Chips label={t.area} value={area} onChange={(a) => { setArea(a); setCinemaId(''); }}
+            options={[{ value: '' as const, label: t.all }, ...areas.map((a) => ({ value: a, label: t.areas[a] }))]} />
+          <Text style={[styles.filterLabel, { color: theme.muted }]}>{t.cinema}</Text>
+          <Chips label={t.cinema} value={cinemaId} onChange={setCinemaId}
+            options={[{ value: '', label: t.all }, ...(cinemas.data ?? []).filter((c) => !area || c.area === area).map((c) => ({ value: c.id, label: c.name }))]} />
+          <Text style={[styles.filterLabel, { color: theme.muted }]}>{t.time}</Text>
+          <Chips label={t.time} value={time} onChange={setTime}
+            options={[{ value: 'any', label: t.anyTime }, { value: 'early', label: t.beforeSix }, { value: 'evening', label: t.sixToNine }, { value: 'late', label: t.afterNine }]} />
+          <Text style={[styles.filterLabel, { color: theme.muted }]}>{t.sortBy}</Text>
+          <Chips label={t.sortBy} value={sort} onChange={setSort}
+            options={[{ value: 'soonest', label: t.soonest }, { value: 'distance', label: t.nearest }]} />
+          {sort === 'distance' && (
+            <>
+              <Text style={[styles.filterLabel, { color: theme.muted }]}>{t.nearArea}</Text>
+              <Chips label={t.nearArea} value={nearArea} onChange={setNearArea} options={areas.map((a) => ({ value: a, label: t.areas[a] }))} />
+              {!nearArea && <Text style={{ color: theme.muted, fontSize: 12, marginTop: 6 }}>{t.pickArea}</Text>}
+            </>
+          )}
+          {activeFilters > 0 && (
+            <Pressable onPress={() => { setArea(''); setCinemaId(''); setTime('any'); setSort('soonest'); setNearArea(''); }} style={{ marginTop: 14 }}>
+              <Text style={{ color: theme.accent, fontWeight: '700' }}>{t.clearFilters}</Text>
+            </Pressable>
+          )}
+        </View>
+      )}
+
       {shows.loading && <ActivityIndicator color={theme.accent} style={{ marginTop: 16 }} />}
       {shows.error && <Text style={{ color: theme.ink, marginTop: 16 }}>{t.loadFailed}</Text>}
       {shows.data?.length === 0 && <Text style={{ color: theme.muted, marginTop: 16 }}>{t.noShowtimes(count)}</Text>}
@@ -69,6 +116,7 @@ export default function MovieScreen() {
           <View style={{ flex: 1 }}>
             <Text style={{ color: theme.ink, fontWeight: '800' }}>{s.cinema.name}</Text>
             <Text style={{ color: theme.muted, fontSize: 12 }}>{s.cinema.detail}</Text>
+            {s.distanceKm != null && <Text style={{ color: theme.muted, fontSize: 12 }}>⌖ {t.km(s.distanceKm)}</Text>}
             <Text style={{ color: theme.good, fontSize: 12, marginTop: 4 }}>
               {[s.matches.connected ? t.togetherOptions(s.matches.connected) : null,
                 s.matches.separated ? t.split(s.matches.separated.join('+')) : null].filter(Boolean).join(' · ')}
@@ -84,7 +132,19 @@ export default function MovieScreen() {
   );
 }
 
+const areas: Area[] = ['Downtown Cairo', 'Maadi', 'New Cairo', '6th of October'];
+
+const timeRanges = {
+  any: {},
+  early: { to: '17:59' },
+  evening: { from: '18:00', to: '20:59' },
+  late: { from: '21:00' },
+} satisfies Record<string, Pick<ShowtimeFilters, 'from' | 'to'>>;
+
 const styles = StyleSheet.create({
+  filterToggle: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, marginTop: 6 },
+  filters: { borderWidth: 1, borderRadius: 14, padding: 14, marginTop: 8 },
+  filterLabel: { fontSize: 12, fontWeight: '700', marginTop: 10, marginBottom: 6 },
   h1: { fontSize: 28, fontWeight: '800', marginTop: 16, letterSpacing: -0.6 },
   h2: { fontSize: 20, fontWeight: '800', marginTop: 28, marginBottom: 10 },
   body: { fontSize: 15, lineHeight: 24, marginVertical: 12 },

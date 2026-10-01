@@ -16,7 +16,7 @@ Start the API first (`apps/api`, port 4000). The app finds it at the address of 
 | Route | File | Status |
 |---|---|---|
 | Movies tab (discovery) | `src/app/(tabs)/index.tsx` | Live from `GET /v1/movies` |
-| Movie details + seat search | `src/app/movie/[id].tsx` | Live from `GET /v1/movies/:id` and `/showtimes` |
+| Movie details + seat search | `src/app/movie/[id].tsx` | Live: seat count and arrangement, plus filters for area, cinema and time, and sorting by soonest or nearest to a chosen area |
 | Seat map | `src/app/showtime/[id].tsx` | Live: best group highlighted, pick another, holds seats via `POST /v1/holds` |
 | Checkout | `src/app/checkout/[holdId].tsx` | Live: guest details, card/wallet choice, cinema policy, hold countdown; payment is simulated |
 | Ticket | `src/app/ticket/[id].tsx` | Live: one QR code per seat |

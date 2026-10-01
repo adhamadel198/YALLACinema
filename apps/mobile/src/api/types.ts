@@ -1,5 +1,23 @@
 // Mirrors the response shapes in apps/api/src. Move to a shared package once more screens use them.
 export type Arrangement = 'connected' | 'separated' | 'either';
+export type Area = 'Downtown Cairo' | 'Maadi' | 'New Cairo' | '6th of October';
+
+export interface Cinema {
+  id: string;
+  name: string;
+  area: Area;
+  detail: string;
+}
+
+/** Optional filters for GET /v1/movies/:id/showtimes (BRD 7.1). Times are "HH:MM" in Cairo. */
+export interface ShowtimeFilters {
+  area?: Area;
+  cinemaId?: string;
+  from?: string;
+  to?: string;
+  sort?: 'soonest' | 'distance';
+  nearArea?: Area;
+}
 
 export interface Movie {
   id: string;

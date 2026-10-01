@@ -78,7 +78,7 @@ function seatMapFor(key: string): SeatMap {
 }
 
 /** Today's date in Cairo plus Cairo's current UTC offset, e.g. ["2026-10-01", "+03:00"]. */
-function cairoDay(now: Date): [string, string] {
+export function cairoDay(now: Date): [string, string] {
   const parts = Object.fromEntries(
     new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Cairo', year: 'numeric', month: '2-digit', day: '2-digit', timeZoneName: 'longOffset' })
       .formatToParts(now).map((p) => [p.type, p.value]),
@@ -91,7 +91,7 @@ export function buildShowtimes(now = new Date()): Showtime[] {
   const [day, offset] = cairoDay(now);
   return schedule.flatMap((s) =>
     s.times.map((t) => {
-      const id = `${s.cinemaId}_${s.movieId}_${t.replace(':', '')}`;
+      const id = `${day}_${s.cinemaId}_${s.movieId}_${t.replace(':', '')}`;
       return {
         id, movieId: s.movieId, cinemaId: s.cinemaId, startsAt: `${day}T${t}:00${offset}`,
         price: s.price, format: s.format, seatMap: seatMapFor(id),

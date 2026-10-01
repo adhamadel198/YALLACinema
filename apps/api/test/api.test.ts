@@ -1,6 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { buildApp } from '../src/app.ts';
+import { createDb } from '../src/db/index.ts';
 
 test('movie discovery lists the seed catalogue', async () => {
   const app = await buildApp();
@@ -23,18 +27,76 @@ test('showtime search returns only showtimes that fit the request, sorted by dis
   assert.deepEqual(huge.json().results, []);
 });
 
-test('a hold blocks the same seats for the next customer', async () => {
-  const app = await buildApp();
+const as = (client: string) => ({ 'x-client-id': client });
+
+async function bestTwo(app: Awaited<ReturnType<typeof buildApp>>) {
   const { results } = (await app.inject('/v1/movies/the-last-light/showtimes?count=2&arrangement=connected')).json();
   const seats = (await app.inject(`/v1/showtimes/${results[0].showtimeId}/seats?count=2&arrangement=connected`)).json();
-  const body = { showtimeId: results[0].showtimeId, seats: seats.best.seats };
-  const first = await app.inject({ method: 'POST', url: '/v1/holds', payload: body });
+  return { showtimeId: results[0].showtimeId as string, seats: seats.best.seats as string[] };
+}
+
+test('a hold blocks the same seats for the next customer', async () => {
+  const app = await buildApp();
+  const payload = await bestTwo(app);
+  const first = await app.inject({ method: 'POST', url: '/v1/holds', payload, headers: as('customer-one') });
   assert.equal(first.statusCode, 201);
   assert.equal(first.json().price.fees, 10);
-  const second = await app.inject({ method: 'POST', url: '/v1/holds', payload: body });
+  const second = await app.inject({ method: 'POST', url: '/v1/holds', payload, headers: as('customer-two') });
   assert.equal(second.statusCode, 409);
+  assert.deepEqual(second.json().unavailable.sort(), [...payload.seats].sort());
   assert.equal((await app.inject({ method: 'DELETE', url: `/v1/holds/${first.json().id}` })).statusCode, 204);
-  assert.equal((await app.inject({ method: 'POST', url: '/v1/holds', payload: body })).statusCode, 201);
+  assert.equal((await app.inject({ method: 'POST', url: '/v1/holds', payload, headers: as('customer-two') })).statusCode, 201);
+});
+
+test('a customer has one hold at a time: a new hold releases their previous seats', async () => {
+  const app = await buildApp();
+  const payload = await bestTwo(app);
+  const first = (await app.inject({ method: 'POST', url: '/v1/holds', payload, headers: as('customer-one') })).json();
+  const other = (await app.inject(`/v1/showtimes/${payload.showtimeId}/seats?count=1&arrangement=connected`)).json()
+    .groups.find((g: { seats: string[] }) => !payload.seats.includes(g.seats[0]));
+  const second = await app.inject({ method: 'POST', url: '/v1/holds', payload: { showtimeId: payload.showtimeId, seats: other.seats }, headers: as('customer-one') });
+  assert.equal(second.statusCode, 201);
+  assert.equal((await app.inject(`/v1/holds/${first.id}`)).statusCode, 410);
+  assert.equal((await app.inject({ method: 'POST', url: '/v1/holds', payload, headers: as('customer-two') })).statusCode, 201);
+});
+
+test('holds expire after 10 minutes', async () => {
+  let now = Date.now();
+  const app = await buildApp({ clock: () => now });
+  const payload = await bestTwo(app);
+  const hold = (await app.inject({ method: 'POST', url: '/v1/holds', payload, headers: as('customer-one') })).json();
+  now += 10 * 60 * 1000 + 1;
+  assert.equal((await app.inject(`/v1/holds/${hold.id}`)).statusCode, 410);
+  assert.equal((await app.inject({ method: 'POST', url: '/v1/holds', payload, headers: as('customer-two') })).statusCode, 201);
+});
+
+test('holding seats is rate limited per customer', async () => {
+  const app = await buildApp();
+  const payload = await bestTwo(app);
+  const codes = [];
+  for (let i = 0; i < 31; i++) codes.push((await app.inject({ method: 'POST', url: '/v1/holds', payload, headers: as('busy-customer') })).statusCode);
+  assert.equal(codes.at(-1), 429);
+  assert.ok(codes.slice(0, 30).every((c) => c === 201));
+});
+
+test('bookings survive a restart', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'yalla-db-'));
+  try {
+    let app = await buildApp({ db: await createDb(undefined, dir) });
+    const { hold, seats, showtimeId } = await holdTwoSeats(app);
+    const booking = (await app.inject({ method: 'POST', url: '/v1/bookings', payload: { holdId: hold.id, guest, paymentMethod: 'card', acceptPolicy: true } })).json();
+    await app.close();
+
+    app = await buildApp({ db: await createDb(undefined, dir) });
+    const again = await app.inject(`/v1/bookings/${booking.id}`);
+    assert.equal(again.statusCode, 200);
+    assert.equal(again.json().reference, booking.reference);
+    const map = (await app.inject(`/v1/showtimes/${showtimeId}/seats`)).json();
+    assert.ok(seats.every((s) => map.unavailable.includes(s)));
+    await app.close();
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
 });
 
 async function holdTwoSeats(app: Awaited<ReturnType<typeof buildApp>>) {
@@ -113,4 +175,12 @@ test('listings come back in Arabic when asked', async () => {
   assert.match(results[0].cinema.detail, /[؀-ۿ]/);
   const english = (await app.inject('/v1/movies')).json();
   assert.equal(english[0].genre, 'Drama');
+});
+
+test('two customers racing for the same seats: exactly one gets them', async () => {
+  const app = await buildApp();
+  const payload = await bestTwo(app);
+  const codes = await Promise.all(['racer-one', 'racer-two', 'racer-three'].map((c) =>
+    app.inject({ method: 'POST', url: '/v1/holds', payload, headers: as(c) }).then((r) => r.statusCode)));
+  assert.deepEqual(codes.sort(), [201, 409, 409]);
 });
