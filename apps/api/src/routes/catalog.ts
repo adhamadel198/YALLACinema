@@ -1,4 +1,4 @@
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { Store } from '../data/store.ts';
 import { areaCentres } from '../data/seed.ts';
 import { showtimeSummary, snapshotOf } from '../data/views.ts';
@@ -16,6 +16,18 @@ function km(a: { lat: number; lon: number }, b: { lat: number; lon: number }) {
   const x = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.sin(dLon / 2) ** 2;
   return Math.round(2 * R * Math.asin(Math.sqrt(x)) * 10) / 10;
 }
+
+/**
+ * A shared device location is personal data, so request logs get the URL without it.
+ * (`logSerializers` is a documented Fastify route option that its route types leave out.)
+ */
+const withoutCoordinates = {
+  logSerializers: {
+    req: (req: FastifyRequest) => ({
+      method: req.method, url: req.url.replace(/([?&](?:lat|lon)=)[^&]*/g, '$1~'), host: req.host, remoteAddress: req.ip,
+    }),
+  },
+};
 
 /** "HH:MM" of an ISO timestamp, read from its own offset (Cairo local time). */
 const localTime = (iso: string) => iso.slice(11, 16);
@@ -49,6 +61,7 @@ export async function catalogRoutes(app: FastifyInstance, { store }: { store: St
 
   /** Movie-first, seat-group search (BRD 7.1): only showtimes that can seat the request exactly. */
   app.get<{ Params: { id: string }; Querystring: ShowtimeQuery }>('/v1/movies/:id/showtimes', {
+    ...withoutCoordinates,
     schema: {
       querystring: {
         type: 'object',
@@ -61,9 +74,11 @@ export async function catalogRoutes(app: FastifyInstance, { store }: { store: St
           to: { type: 'string', pattern: '^\\d{2}:\\d{2}$' },
           sort: { type: 'string', enum: ['soonest', 'distance'], default: 'soonest' },
           nearArea: { type: 'string', enum: areas },
-          lat: { type: 'number' },
-          lon: { type: 'number' },
+          // Device location (BRD 7.1): wins over nearArea; send both or neither.
+          lat: { type: 'number', minimum: -90, maximum: 90 },
+          lon: { type: 'number', minimum: -180, maximum: 180 },
         },
+        dependencies: { lat: ['lon'], lon: ['lat'] },
       },
     },
   }, async (req, reply) => {

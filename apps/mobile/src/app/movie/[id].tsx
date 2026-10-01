@@ -8,6 +8,8 @@ import { Chips } from '../../components/Chips';
 import { Poster } from '../../components/Poster';
 import { Message } from '../../components/ui';
 import { useI18n } from '../../i18n';
+import { distanceText, DistanceSortFilter, DistanceSortSummary } from '../../location/DistanceSort';
+import { useDistanceSort } from '../../location/useDistanceSort';
 import { useTheme } from '../../theme';
 
 /** Movie details plus the seat-group showtime search (GET /v1/movies/:id/showtimes). */
@@ -22,13 +24,9 @@ export default function MovieScreen() {
   const [area, setArea] = useState<Area | ''>('');
   const [cinemaId, setCinemaId] = useState('');
   const [time, setTime] = useState<keyof typeof timeRanges>('any');
-  const [sort, setSort] = useState<'soonest' | 'distance'>('soonest');
-  const [nearArea, setNearArea] = useState<Area | ''>('');
-  const filters: ShowtimeFilters = {
-    area: area || undefined, cinemaId: cinemaId || undefined, ...timeRanges[time],
-    sort: sort === 'distance' && nearArea ? 'distance' : 'soonest', nearArea: sort === 'distance' ? nearArea || undefined : undefined,
-  };
-  const activeFilters = [area, cinemaId, time !== 'any', sort === 'distance'].filter(Boolean).length;
+  const distance = useDistanceSort();
+  const filters: ShowtimeFilters = { area: area || undefined, cinemaId: cinemaId || undefined, ...timeRanges[time], ...distance.query };
+  const activeFilters = [area, cinemaId, time !== 'any', distance.sort === 'distance'].filter(Boolean).length;
   const shows = useRequest(() => api.showtimes(id, count, arrangement, filters), [id, count, arrangement, lang, JSON.stringify(filters)]);
   const cinemas = useRequest(api.cinemas, [lang]);
   const arrangements: { value: Arrangement; label: string }[] = [
@@ -93,23 +91,15 @@ export default function MovieScreen() {
           <Text style={[styles.filterLabel, { color: theme.muted }]}>{t.time}</Text>
           <Chips label={t.time} value={time} onChange={setTime}
             options={[{ value: 'any', label: t.anyTime }, { value: 'early', label: t.beforeSix }, { value: 'evening', label: t.sixToNine }, { value: 'late', label: t.afterNine }]} />
-          <Text style={[styles.filterLabel, { color: theme.muted }]}>{t.sortBy}</Text>
-          <Chips label={t.sortBy} value={sort} onChange={setSort}
-            options={[{ value: 'soonest', label: t.soonest }, { value: 'distance', label: t.nearest }]} />
-          {sort === 'distance' && (
-            <>
-              <Text style={[styles.filterLabel, { color: theme.muted }]}>{t.nearArea}</Text>
-              <Chips label={t.nearArea} value={nearArea} onChange={setNearArea} options={areas.map((a) => ({ value: a, label: t.areas[a] }))} />
-              {!nearArea && <Text style={{ color: theme.muted, fontSize: 12, marginTop: 6 }}>{t.pickArea}</Text>}
-            </>
-          )}
+          <DistanceSortFilter ds={distance} />
           {activeFilters > 0 && (
-            <Pressable onPress={() => { setArea(''); setCinemaId(''); setTime('any'); setSort('soonest'); setNearArea(''); }} style={{ marginTop: 14 }}>
+            <Pressable onPress={() => { setArea(''); setCinemaId(''); setTime('any'); distance.reset(); }} style={{ marginTop: 14 }}>
               <Text style={{ color: theme.accent, fontWeight: '700' }}>{t.clearFilters}</Text>
             </Pressable>
           )}
         </View>
       )}
+      {!filtersOpen && <DistanceSortSummary ds={distance} onChange={() => setFiltersOpen(true)} />}
 
       {shows.loading && <ActivityIndicator color={theme.accent} style={{ marginTop: 16 }} />}
       {shows.error && <Text style={{ color: theme.ink, marginTop: 16 }}>{t.loadFailed}</Text>}
@@ -117,11 +107,11 @@ export default function MovieScreen() {
       {shows.data?.map((s) => (
         <Pressable key={s.showtimeId}
           onPress={() => router.push({ pathname: '/showtime/[id]', params: { id: s.showtimeId, count: String(count), arrangement } })}
-          accessibilityLabel={`${s.cinema.name} ${s.localTime}`} style={[styles.show, { backgroundColor: theme.panel, borderColor: theme.line }]}>
+          accessibilityLabel={[`${s.cinema.name} ${s.localTime}`, s.distanceKm != null && distanceText(t, distance.near, s.distanceKm)].filter(Boolean).join(', ')} style={[styles.show, { backgroundColor: theme.panel, borderColor: theme.line }]}>
           <View style={{ flex: 1 }}>
             <Text style={{ color: theme.ink, fontWeight: '800' }}>{s.cinema.name}</Text>
             <Text style={{ color: theme.muted, fontSize: 12 }}>{s.cinema.detail}</Text>
-            {s.distanceKm != null && <Text style={{ color: theme.muted, fontSize: 12 }}>⌖ {t.km(s.distanceKm)}</Text>}
+            {s.distanceKm != null && <Text style={{ color: theme.muted, fontSize: 12 }}>📍 {distanceText(t, distance.near, s.distanceKm)}</Text>}
             <Text style={{ color: theme.good, fontSize: 12, marginTop: 4 }}>
               {[s.matches.connected ? t.togetherOptions(s.matches.connected) : null,
                 s.matches.separated ? t.split(s.matches.separated.join('+')) : null].filter(Boolean).join(' · ')}

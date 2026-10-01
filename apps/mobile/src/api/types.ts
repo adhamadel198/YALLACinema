@@ -20,6 +20,9 @@ export interface ShowtimeFilters {
   to?: string;
   sort?: 'soonest' | 'distance';
   nearArea?: Area;
+  /** Device location; the API prefers it to nearArea. */
+  lat?: number;
+  lon?: number;
 }
 
 export interface Movie {
