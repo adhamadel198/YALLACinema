@@ -6,6 +6,8 @@ export const en = {
   pickedOf: (n: number, of: number) => `${n} of ${of}`,
   noSeatsPicked: 'None yet. Tap seats on the map.',
   togetherTag: 'together',
+  /** How a selection is split, e.g. "3+1". */
+  splitTag: (pattern: string) => `split ${pattern}`,
   splitPlaces: (n: number) => `apart, in ${n} places`,
   clearSeats: 'Clear',
   clearSeatsLabel: 'Clear the seats you picked',
@@ -26,6 +28,8 @@ export const ar: typeof en = {
   pickedOf: (n, of) => `${n} من ${of}`,
   noSeatsPicked: 'لسه مختارتش. دوس على الكراسي في الخريطة.',
   togetherTag: 'جنب بعض',
+  // The left-to-right mark keeps "3+1" in that order after an Arabic word (otherwise it shows as 1+3).
+  splitTag: (pattern) => `متفرقين \u200E${pattern}`,
   splitPlaces: (n) => `متفرقين في ${n} أماكن`,
   clearSeats: 'امسح',
   clearSeatsLabel: 'امسح الكراسي اللي اخترتها',

@@ -146,7 +146,7 @@ export default function SeatScreen() {
                   <Text style={[styles.pickedSeats, { color: theme.ink }]}>{describeSeats(seats)}</Text>
                   {seats.length > 1 && (
                     <Text style={{ color: pattern.length > 1 ? theme.muted : theme.good, fontSize: 13 }}>
-                      {pattern.length === 1 ? t.togetherTag : pattern.length <= 4 ? t.split(pattern.join('+')) : t.splitPlaces(pattern.length)}
+                      {pattern.length === 1 ? t.togetherTag : pattern.length <= 4 ? t.splitTag(pattern.join('+')) : t.splitPlaces(pattern.length)}
                     </Text>
                   )}
                 </View>
