@@ -7,6 +7,7 @@ import { bookingView, showtimeSummary, snapshotOf } from '../data/views.ts';
 import { langOf } from '../data/i18n.ts';
 import { MAX_SEATS_PER_BOOKING } from '../domain/limits.ts';
 import { bookingTotal } from '../domain/pricing.ts';
+import { isSeat } from '../domain/seats.ts';
 import { emailSchema, mobileSchema, nameSchema } from './schemas.ts';
 import type { Booking, Guest, PaymentMethod } from '../domain/types.ts';
 import type { CinemaIntegration } from '../integrations/cinema.ts';
@@ -45,6 +46,9 @@ export async function bookingRoutes(app: FastifyInstance, { store, payments, cin
   }, async (req, reply) => {
     const showtime = store.showtime(req.body.showtimeId);
     if (!showtime) return reply.code(404).send({ error: 'Showtime not found' });
+    // The customer may pick any seats (BRD 7.2), but only real ones: "A13" in a 12-seat row, or "A01" for "A1", is refused.
+    const unknown = req.body.seats.filter((s) => !isSeat(showtime.seatMap, s));
+    if (unknown.length) return reply.code(400).send({ error: 'These seats are not on this showtime’s seat map', unknown });
     const result = await store.hold(showtime.id, req.body.seats, clientIdOf(req));
     if ('unavailable' in result) return reply.code(409).send({ error: 'Seats no longer available', unavailable: result.unavailable });
     return reply.code(201).send({ ...result.hold, price: bookingTotal(showtime.price, req.body.seats.length) });

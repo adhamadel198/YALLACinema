@@ -2,17 +2,28 @@ import type { Arrangement, SeatGroup, SeatId, SeatMap } from './types.ts';
 
 export const seatId = (row: number, col: number): SeatId => String.fromCharCode(65 + row) + (col + 1);
 
+/** Whether `id` names a seat on this map, in its exact form ("A1", never "A01"). */
+export function isSeat(map: SeatMap, id: string): boolean {
+  const m = /^([A-Z])(\d{1,2})$/.exec(id);
+  if (!m) return false;
+  const row = m[1].charCodeAt(0) - 65, col = Number(m[2]) - 1;
+  return row < map.rows && col >= 0 && col < map.cols && seatId(row, col) === id;
+}
+
 /** Free seats in each row, split into runs of seats immediately next to each other. */
 function freeBlocks(map: SeatMap, blocked: Set<SeatId>): SeatId[][] {
   const blocks: SeatId[][] = [];
+  const aisles = new Set(map.aisles);
   for (let r = 0; r < map.rows; r++) {
     let run: SeatId[] = [];
     for (let c = 0; c < map.cols; c++) {
       const id = seatId(r, c);
-      if (blocked.has(id)) {
+      if (!blocked.has(id)) run.push(id);
+      // A taken seat or an aisle ends the run.
+      if (blocked.has(id) || aisles.has(c + 1)) {
         if (run.length) blocks.push(run);
         run = [];
-      } else run.push(id);
+      }
     }
     if (run.length) blocks.push(run);
   }

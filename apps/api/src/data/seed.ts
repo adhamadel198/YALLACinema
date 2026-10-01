@@ -65,6 +65,9 @@ const schedule: { cinemaId: string; movieId: string; times: string[]; price: num
   { cinemaId: 'galaxy-maadi', movieId: 'little-giants', times: ['16:30', '18:45'], price: 145, format: 'Standard' },
 ];
 
+/** Halls whose rows are split by aisles: seat numbers with a walkway after them (see SeatMap.aisles). */
+const hallAisles: Record<string, number[]> = { 'galaxy-maadi': [2, 10] };
+
 /** Deterministic pseudo-random seat occupancy so the same showtime always has the same map. */
 function seatMapFor(key: string): SeatMap {
   let h = 2166136261;
@@ -94,7 +97,7 @@ export function buildShowtimes(now = new Date()): Showtime[] {
       const id = `${day}_${s.cinemaId}_${s.movieId}_${t.replace(':', '')}`;
       return {
         id, movieId: s.movieId, cinemaId: s.cinemaId, startsAt: `${day}T${t}:00${offset}`,
-        price: s.price, format: s.format, seatMap: seatMapFor(id),
+        price: s.price, format: s.format, seatMap: { ...seatMapFor(id), aisles: hallAisles[s.cinemaId] },
       };
     }),
   );
