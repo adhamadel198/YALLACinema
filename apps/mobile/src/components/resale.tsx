@@ -5,6 +5,7 @@ import type { TicketStatus } from '../api/resale';
 import { useAuth } from '../auth';
 import { signInHref } from '../auth/routes';
 import { useI18n } from '../i18n';
+import { showStarted } from '../liveShow';
 import { useTheme } from '../theme';
 import { Button, Panel } from './ui';
 
@@ -98,8 +99,7 @@ export function TicketResale({ booking }: { booking: Booking }) {
   const listed = count('listed');
   const sold = count('transferred');
   const sellable = count('valid');
-  const started = Date.parse(booking.showtime.startsAt) <= Date.now();
-  const canSell = sellable > 0 && !started && booking.showChange?.kind !== 'cancelled';
+  const canSell = sellable > 0 && !showStarted(booking) && booking.showChange?.kind !== 'cancelled';
 
   if (!ready) return null;
   if (!booking.accountId) {

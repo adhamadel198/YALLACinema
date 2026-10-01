@@ -9,6 +9,7 @@ import { ShowChangeNotice } from '../../components/ShowChangeNotice';
 import { Button, Line, Message, Panel } from '../../components/ui';
 import { showDate } from '../../format';
 import { useI18n } from '../../i18n';
+import { showStartsAt } from '../../liveShow';
 import { describeSeats } from '../../seats';
 import { useTheme } from '../../theme';
 
@@ -35,7 +36,7 @@ export default function TicketScreen() {
         <Text style={[styles.kicker, { color: theme.accent }, rtl && styles.noTracking]}>{t.eTicket}</Text>
         <Text style={[styles.title, { color: theme.ink }]}>{b.showtime.movie.title}</Text>
         <Text style={{ color: theme.muted, marginBottom: 12 }}>{b.showtime.cinema.name}</Text>
-        <Line label={t.dateTime} value={showDate(b.showtime.startsAt, t)} />
+        <Line label={t.dateTime} value={showDate(showStartsAt(b), t)} />
         <Line label={t.seats} value={describeSeats(b.tickets.map((x) => x.seat))} />
         <Line label={t.reference} value={b.reference} strong />
         <Line label={t.totalPaid} value={t.egp(b.price.total)} />

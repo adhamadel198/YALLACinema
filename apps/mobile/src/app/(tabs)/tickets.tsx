@@ -8,8 +8,10 @@ import type { Booking } from '../../api/types';
 import { useRequest } from '../../api/useRequest';
 import { useAuth } from '../../auth';
 import { signInHref } from '../../auth/routes';
+import { Pill } from '../../components/resale';
 import { Button, Panel } from '../../components/ui';
 import { showDate } from '../../format';
+import { showStartsAt } from '../../liveShow';
 import { describeSeats } from '../../seats';
 import { useI18n } from '../../i18n';
 import { useTheme } from '../../theme';
@@ -73,10 +75,13 @@ export default function Tickets() {
       renderItem={({ item }) => (
         <Pressable onPress={() => router.push({ pathname: '/ticket/[id]', params: { id: item.id } })}>
           <Panel>
-            <Text style={[styles.title, { color: theme.ink }]}>{item.showtime.movie.title}</Text>
+            <View style={styles.head}>
+              <Text style={[styles.title, { color: theme.ink }]}>{item.showtime.movie.title}</Text>
+              {item.showChange ? <Pill label={t.op.ticketBadge[item.showChange.kind]} tone="accent" /> : null}
+            </View>
             <Text style={{ color: theme.muted }}>{item.showtime.cinema.name}</Text>
             <Text style={{ color: theme.ink, marginTop: 6 }}>
-              {showDate(item.showtime.startsAt, t)} · {t.seatsList(describeSeats(item.tickets.map((x) => x.seat)))}
+              {showDate(showStartsAt(item), t)} · {t.seatsList(describeSeats(item.tickets.map((x) => x.seat)))}
             </Text>
             <Text style={{ color: theme.muted, fontSize: 12, marginTop: 4 }}>{item.reference}</Text>
           </Panel>
@@ -88,7 +93,8 @@ export default function Tickets() {
 
 const styles = StyleSheet.create({
   list: { padding: 16, gap: 12, flexGrow: 1 },
-  title: { fontSize: 17, fontWeight: '800' },
+  head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  title: { fontSize: 17, fontWeight: '800', flexShrink: 1 },
   empty: { paddingHorizontal: 8, paddingTop: 40, paddingBottom: 24 },
   emptyTitle: { fontSize: 22, fontWeight: '800', marginBottom: 8 },
   body: { fontSize: 15, lineHeight: 22 },

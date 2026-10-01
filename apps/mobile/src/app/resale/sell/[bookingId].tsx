@@ -10,6 +10,7 @@ import { Button, Line, Message, Panel } from '../../../components/ui';
 import { useAuth } from '../../../auth';
 import { showDate } from '../../../format';
 import { useI18n } from '../../../i18n';
+import { showStarted, showStartsAt } from '../../../liveShow';
 import { useTheme } from '../../../theme';
 
 type PayoutForm = { kind: PayoutDetails['kind']; mobile: string; bankName: string; accountName: string; accountNumber: string };
@@ -59,7 +60,8 @@ export default function SellTickets() {
 
   const b = loaded.booking;
   if (b.accountId !== account.id) return <>{title}<Message text={t.resaleNotOwner} /></>;
-  if (Date.parse(b.showtime.startsAt) <= Date.now()) return <>{title}<Message text={t.resaleShowStarted} /></>;
+  if (b.showChange?.kind === 'cancelled') return <>{title}<Message text={t.resaleShowCancelled} /></>;
+  if (showStarted(b)) return <>{title}<Message text={t.resaleShowStarted} /></>;
   const sellable = b.tickets.filter((x) => x.status === 'valid');
   const paid = b.showtime.price;
   const price = Number(latinDigits(priceText.trim()));
@@ -135,7 +137,7 @@ export default function SellTickets() {
         <Panel>
           <Text style={[styles.title, { color: theme.ink }]}>{b.showtime.movie.title}</Text>
           <Text style={{ color: theme.muted }}>{b.showtime.cinema.name}</Text>
-          <Text style={{ color: theme.muted, marginBottom: 10 }}>{showDate(b.showtime.startsAt, t)}</Text>
+          <Text style={{ color: theme.muted, marginBottom: 10 }}>{showDate(showStartsAt(b), t)}</Text>
           <Text style={{ color: theme.ink }}>{t.resaleYouPaid(t.egp(paid))}</Text>
         </Panel>
 
