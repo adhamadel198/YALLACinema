@@ -70,3 +70,16 @@ td{border-color:#453923}
 .formpanel label[style*="color:#716a82"]{color:#c0b49a!important}
 .mobile-nav{display:none}
 @media(max-width:760px){body{padding-bottom:calc(82px + env(safe-area-inset-bottom))}.topbar{height:96px}.topbar .navlinks{display:none}.topbar .nav{position:relative;justify-content:center}.topbar .brand{position:absolute;left:50%;transform:translateX(-50%)}.brand-logo{width:132px;height:96px}.topbar .navside{display:none}.mobile-nav{display:flex;position:fixed;inset:auto 0 0;z-index:25;min-height:calc(76px + env(safe-area-inset-bottom));padding:7px max(10px,env(safe-area-inset-left)) env(safe-area-inset-bottom) max(10px,env(safe-area-inset-right));justify-content:space-around;align-items:center;gap:4px;background:#11100ff5;border-top:1px solid #4b3b20;backdrop-filter:blur(16px);box-shadow:0 -8px 24px #0008}.mobile-nav a{flex:1;min-width:0;min-height:56px;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:3px;color:#ded5c1;font-size:10px;font-weight:650;text-decoration:none}.mobile-nav .mobile-icon{width:21px;height:21px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}.mobile-nav a.active{color:#efce75}.mobile-nav a:focus-visible{outline:2px solid #efce75;outline-offset:2px;border-radius:9px}}
+
+/* Language switch and right-to-left layout (see i18n.js) */
+.lang{font:inherit;font-weight:700;cursor:pointer}
+.lang-mobile{display:none}
+[dir="rtl"] body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Tahoma,sans-serif}
+[dir="rtl"] th,[dir="rtl"] td{text-align:right}
+[dir="rtl"] .dot{margin-right:0;margin-left:5px}
+[dir="rtl"] .heroPoster:after{right:auto;left:12%}
+[dir="rtl"] .ticket-top:after{right:auto;left:-25px}
+[dir="rtl"] input[type=email],[dir="rtl"] input[type=tel],[dir="rtl"] input[inputmode=numeric],[dir="rtl"] #expiry,[dir="rtl"] #ref,[dir="rtl"] .seatgrid{direction:ltr}
+[dir="rtl"] input[type=email],[dir="rtl"] input[type=tel],[dir="rtl"] input[inputmode=numeric],[dir="rtl"] #expiry{text-align:right}
+@media(min-width:761px){[dir="rtl"] .sidebar{border-right:0;border-left:1px solid var(--line)}}
+@media(max-width:760px){.lang-mobile{display:inline-flex;align-items:center;position:absolute;inset-inline-end:0;top:50%;transform:translateY(-50%);padding:7px 11px;font-size:13px}}
