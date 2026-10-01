@@ -187,7 +187,8 @@ export async function resaleRoutes(app: FastifyInstance, { store, auth, payments
     const check = await cinema.resale.checkEligibility({ showtimeId: booking.showtime.showtimeId, tickets: tickets.map((t) => ({ seat: t!.seat, qr: t!.qr })) });
     if (!check.ok) return reply.code(409).send({ error: 'The cinema says these tickets cannot be resold.', code: 'cinema-ineligible', reason: check.reason });
 
-    const created = await resale.createListing({ sellerAccountId: seller.id, booking, ticketIds, price });
+    // Listed with the show's current start, so the listing closes when the show really starts.
+    const created = await resale.createListing({ sellerAccountId: seller.id, booking: { ...booking, showtime: show }, ticketIds, price });
     if ('unavailable' in created)
       return reply.code(409).send({ error: 'Only unused tickets that are not already listed or transferred can be resold.', code: 'ineligible', tickets: created.unavailable.map((ticketId) => ({ ticketId })) });
     return reply.code(201).send(sellerView(store, created.listing, langOf(req)));

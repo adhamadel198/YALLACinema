@@ -166,6 +166,9 @@ export class Corrections {
       const kind: ChangeKind = before.cancelled === after.cancelled ? 'changed' : after.cancelled ? 'cancelled' : 'reinstated';
       // Released before affected bookings are listed, so a checkout completing right now is either listed or refunded.
       await tx.query('DELETE FROM holds WHERE showtime_id = $1', [base.id]);
+      // Open resale listings (data/resale.ts) close when the show starts, so they follow a new start time.
+      if (before.startsAt !== after.startsAt)
+        await tx.query(`UPDATE resale_listings SET starts_at = $2 WHERE showtime_id = $1 AND status = 'open'`, [base.id, after.startsAt]);
       const changeId = randomUUID();
       await tx.query('INSERT INTO showtime_changes (id, showtime_id, cinema_id, kind, before, after, account_id, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
         [changeId, base.id, base.cinemaId, kind, JSON.stringify(before), JSON.stringify(after), accountId, new Date(this.clock())]);
