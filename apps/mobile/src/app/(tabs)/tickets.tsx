@@ -35,9 +35,11 @@ export default function Tickets() {
       }
     }
     const listed = new Set(mine.map((b) => b.id));
-    // A booking the API no longer knows (the dev server keeps data in memory) is skipped.
+    // A booking the API no longer knows (the dev server keeps data in memory) is skipped, and so are tickets of an
+    // account that isn't signed in here (they show again after signing in to it).
     const device = await Promise.all((await myBookingIds()).filter((id) => !listed.has(id)).map((id) => api.booking(id).catch(() => null)));
-    const all = [...mine, ...device.filter((b) => b !== null)].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    const shown = device.filter((b): b is Booking => b !== null && (b.accountId === null || b.accountId === account?.id));
+    const all = [...mine, ...shown].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     return { all, accountFailed };
   }, [lang, ready, account?.id]);
   useFocusEffect(useCallback(() => bookings.reload(), [bookings.reload]));

@@ -1,9 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { AppState } from 'react-native';
-import { claimDeviceBookings } from '../api/accounts';
+import { accountsApi, claimDeviceBookings } from '../api/accounts';
 import { authApi, type Account, type SignUp } from '../api/auth';
 import { ApiError, onSessionExpired, setAuthToken } from '../api/client';
+import { forgetAccountBookings } from '../api/myBookings';
 
 const KEY = 'yalla.session';
 
@@ -63,9 +64,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return signedIn;
   }, [use]);
 
-  const clear = useCallback(async () => {
+  /**
+   * Signs out on this device. The account's tickets saved here go too (those in its `history`, and any booking with an
+   * account), so a shared device doesn't keep them; guest bookings stay.
+   */
+  const clear = useCallback(async (history?: string[]) => {
+    if (!session.current) return;
     use(null);
     await AsyncStorage.removeItem(KEY).catch(() => {});
+    await forgetAccountBookings(history).catch(() => {});
   }, [use]);
 
   /** Refreshes the account from GET /v1/me. A 401 signs out (below); any other failure keeps the saved account. */
@@ -120,8 +127,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     signIn: async (email, password) => start(await authApi.signIn(email, password)),
     signUp: async (details) => start(await authApi.signUp(details)),
     signOut: async () => {
+      // Read while still signed in, so the account's tickets leave this device with it.
+      const history = await accountsApi.bookings().then((list) => list.map((b) => b.id), () => []);
       await authApi.signOut().catch(() => {});
-      await clear();
+      await clear(history);
     },
   }), [account, ready, start, clear]);
 
