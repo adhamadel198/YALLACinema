@@ -173,6 +173,10 @@ export default function SellTickets() {
             <Text style={{ color: theme.muted, fontSize: 12, marginBottom: 12 }}>{t.resaleUnverified}</Text>
             {payoutError && <Text style={{ color: theme.accent, marginBottom: 12 }}>{payoutError}</Text>}
             <Button title={t.resaleSavePayout} onPress={savePayout} busy={savingPayout} disabled={!payoutValid} />
+            {payout && (
+              <Button title={t.resaleCancelChange} kind="secondary" style={{ marginTop: 10 }}
+                onPress={() => { setEditingPayout(false); setForm(emptyPayout); setPayoutError(undefined); }} />
+            )}
           </Panel>
         ) : (
           <Panel>
