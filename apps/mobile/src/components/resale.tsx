@@ -1,22 +1,25 @@
 import { router } from 'expo-router';
-import { Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native';
+import { StyleSheet, Text, View, type StyleProp, type TextStyle, type ViewStyle } from 'react-native';
 import type { Booking } from '../api/types';
 import type { TicketStatus } from '../api/resale';
 import { useAuth } from '../auth';
 import { signInHref } from '../auth/routes';
 import { useI18n } from '../i18n';
+import { useLayout } from '../layout';
 import { showStarted } from '../liveShow';
-import { useTheme } from '../theme';
-import { Button, Panel } from './ui';
+import { colors } from '../theme';
+import { useType } from '../typography';
+import { CheckRow } from './form';
+import { Badge, Button, Eyebrow, H2, Panel, type BadgeTone } from './ui';
 
 /** Resale needs an account: sign in, then come back to this screen. */
-export function SignInPrompt({ text, style }: { text: string; style?: ViewStyle }) {
-  const theme = useTheme();
+export function SignInPrompt({ text, style }: { text: string; style?: StyleProp<ViewStyle> }) {
   const { t } = useI18n();
+  const { type } = useType();
   return (
     <Panel style={style}>
-      <Text style={{ color: theme.ink, marginBottom: 12, lineHeight: 21 }}>{text}</Text>
-      <Button title={t.resaleGoSignIn} onPress={() => router.push(signInHref())} />
+      <Text style={[type.body, { marginBottom: 12 }]}>{text}</Text>
+      <Button title={t.resaleGoSignIn} size="small" inline onPress={() => router.push(signInHref())} />
     </Panel>
   );
 }
@@ -24,76 +27,79 @@ export function SignInPrompt({ text, style }: { text: string; style?: ViewStyle 
 /**
  * One line of facts joined by " · ", e.g. cinema and date. Each part is its own Text, so Latin names, seat ids
  * and Arabic words keep their own direction instead of being reordered together, and the row flips in Arabic.
+ * Default text is the live `.list-info`: 12/18.6 in `color`.
  */
-export function Parts({ parts, color, style }: { parts: string[]; color: string; style?: ViewStyle }) {
+export function Parts({ parts, color = colors.muted, style, textStyle }: {
+  parts: (string | false | null | undefined)[]; color?: string; style?: StyleProp<ViewStyle>; textStyle?: StyleProp<TextStyle>;
+}) {
+  const { font } = useType();
+  const text = [font(400), { color, fontSize: 12, lineHeight: 18.6 }, textStyle];
   return (
     <View style={[styles.parts, style]}>
-      {parts.flatMap((part, i) => [
-        ...(i ? [<Text key={`dot${i}`} style={{ color }}>·</Text>] : []),
-        <Text key={i} style={{ color }}>{part}</Text>,
+      {parts.filter((p): p is string => !!p).flatMap((part, i) => [
+        ...(i ? [<Text key={`dot${i}`} aria-hidden style={text}>·</Text>] : []),
+        <Text key={i} style={text}>{part}</Text>,
       ])}
     </View>
   );
 }
 
-/** A small rounded label, e.g. a listing's status. */
-export function Pill({ label, tone = 'muted' }: { label: string; tone?: 'accent' | 'good' | 'muted' }) {
-  const theme = useTheme();
-  const color = tone === 'accent' ? theme.accent : tone === 'good' ? theme.good : theme.muted;
-  return (
-    <View style={[styles.pill, { borderColor: color }]}>
-      <Text style={{ color, fontSize: 12, fontWeight: '700' }}>{label}</Text>
-    </View>
-  );
+const PILL: Record<'accent' | 'good' | 'muted', BadgeTone> = { good: 'good', accent: 'cream', muted: 'dark' };
+
+/** A small rounded label, e.g. a listing's status: good = green pill, accent = cream badge, muted = dark pill. */
+export function Pill({ label, tone = 'muted', style }: { label: string; tone?: 'accent' | 'good' | 'muted'; style?: StyleProp<ViewStyle> }) {
+  return <Badge label={label} tone={PILL[tone]} style={style} />;
 }
 
-/** Multi-select pills, one per seat; disabled ones show why (e.g. "Listed"). */
-export function SeatToggles({ options, selected, onToggle }: {
+/**
+ * Checkbox rows, one per seat (live `.elig-ticket`); disabled ones show why (e.g. "Seat D8 · Listed").
+ * `tone="cream"` for the cream buy sheet; `columns` puts two rows side by side on wide screens.
+ */
+export function SeatToggles({ options, selected, onToggle, tone = 'dark', columns }: {
   options: { id: string; label: string; note?: string; disabled?: boolean }[];
   selected: string[];
   onToggle: (id: string) => void;
+  tone?: 'dark' | 'cream';
+  columns?: boolean;
 }) {
-  const theme = useTheme();
+  const { wide } = useLayout();
+  const two = columns && wide && options.length > 1;
   return (
-    <View style={styles.toggles}>
+    <View style={two ? styles.twoCols : undefined}>
       {options.map((o) => {
         const on = selected.includes(o.id);
         return (
-          <Pressable key={o.id} disabled={o.disabled} onPress={() => onToggle(o.id)}
-            accessibilityRole="checkbox" aria-checked={on} aria-disabled={o.disabled}
-            accessibilityLabel={o.note ? `${o.label}, ${o.note}` : o.label}
-            style={[styles.toggle, { borderColor: on ? theme.accent : theme.line, backgroundColor: on ? theme.accent : theme.panel }, o.disabled && { opacity: 0.55 }]}>
-            <Text style={{ color: on ? theme.accentInk : theme.ink, fontWeight: '800' }}>{on ? `✓ ${o.label}` : o.label}</Text>
-            {o.note && <Text style={{ color: on ? theme.accentInk : theme.muted, fontSize: 11, marginTop: 2 }}>{o.note}</Text>}
-          </Pressable>
+          <CheckRow key={o.id} title={o.label} sub={o.note} checked={on} disabled={o.disabled} tone={tone}
+            onToggle={() => onToggle(o.id)} accessibilityLabel={o.note ? `${o.label}, ${o.note}` : o.label}
+            style={[{ marginVertical: 4 }, two && styles.half]} />
         );
       })}
     </View>
   );
 }
 
-/** Shown in place of a ticket's QR code when it can't be used at the entrance. */
+/** Shown in place of a ticket's QR code when it can't be used at the entrance (146px, like the framed codes). */
 export function HiddenCode({ status: raw }: { status: string }) {
-  const theme = useTheme();
   const { t } = useI18n();
+  const { font } = useType();
   const status = raw as Exclude<TicketStatus, 'valid'>;
   return (
-    <View style={[styles.hidden, { borderColor: theme.line, backgroundColor: theme.panel }]}>
-      <Text style={{ color: status === 'transferred' ? theme.muted : theme.accent, fontWeight: '800', marginBottom: 6 }}>
+    <View style={styles.hidden}>
+      <Text style={[font(800), { color: status === 'transferred' ? colors.muted : colors.goldText, fontSize: 13, marginBottom: 6, textAlign: 'center' }]}>
         {t.resaleTicketStatus[status] ?? raw}
       </Text>
-      <Text style={{ color: theme.muted, fontSize: 12, textAlign: 'center' }}>{t.resaleCodeHidden[status] ?? ''}</Text>
+      <Text style={[font(400), { color: colors.muted, fontSize: 11, lineHeight: 16, textAlign: 'center' }]}>{t.resaleCodeHidden[status] ?? ''}</Text>
     </View>
   );
 }
 
 /**
  * The resale part of a ticket screen: its owner can sell tickets that are still valid until the show starts,
- * and sees which are listed or sold.
+ * and sees which are listed or sold. It stretches to its container; the screen spaces it.
  */
 export function TicketResale({ booking }: { booking: Booking }) {
-  const theme = useTheme();
   const { t } = useI18n();
+  const { type, font } = useType();
   const { account, ready } = useAuth();
   const count = (status: TicketStatus) => booking.tickets.filter((x) => x.status === status).length;
   const listed = count('listed');
@@ -103,33 +109,36 @@ export function TicketResale({ booking }: { booking: Booking }) {
 
   if (!ready) return null;
   if (!booking.accountId) {
-    return canSell ? <Text style={[styles.note, { color: theme.muted }]}>{t.resaleGuestBooking}</Text> : null;
+    return canSell ? <Text style={[type.caption, { textAlign: 'center' }]}>{t.resaleGuestBooking}</Text> : null;
   }
-  if (!account) return canSell || listed ? <SignInPrompt text={t.resaleSignInToSell} style={{ marginTop: 12 }} /> : null;
+  if (!account) return canSell || listed ? <SignInPrompt text={t.resaleSignInToSell} /> : null;
   if (account.id !== booking.accountId || (!canSell && !listed && !sold)) return null;
 
   return (
-    <Panel style={{ marginTop: 12 }}>
-      <Text style={[styles.h2, { color: theme.ink }]}>{t.resaleTitle}</Text>
-      {listed > 0 && <Text style={{ color: theme.accent, fontWeight: '700', marginBottom: 4 }}>{t.resaleListedCount(listed)}</Text>}
-      {sold > 0 && <Text style={{ color: theme.good, fontWeight: '700', marginBottom: 4 }}>{t.resaleSoldCount(sold)}</Text>}
-      {canSell && <Text style={{ color: theme.muted, marginBottom: 12, lineHeight: 20 }}>{t.resaleSellHint}</Text>}
-      {canSell && (
-        <Button title={t.resaleSellTitle} onPress={() => router.push({ pathname: '/resale/sell/[bookingId]', params: { bookingId: booking.id } })} />
-      )}
-      {(listed > 0 || sold > 0) && (
-        <Button title={t.resaleManage} kind="secondary" onPress={() => router.push('/resale/mine')} style={{ marginTop: canSell ? 10 : 8 }} />
-      )}
+    <Panel>
+      <Eyebrow style={{ marginBottom: 4 }}>{t.resaleUi.ticketKicker}</Eyebrow>
+      <H2 small>{t.resaleTitle}</H2>
+      {listed > 0 && <Text style={[font(700), styles.count, { color: colors.link }]}>{t.resaleListedCount(listed)}</Text>}
+      {sold > 0 && <Text style={[font(700), styles.count, { color: colors.success }]}>{t.resaleSoldCount(sold)}</Text>}
+      {canSell && <Text style={[type.small, { color: colors.muted, marginBottom: 14 }]}>{t.resaleSellHint}</Text>}
+      <View style={styles.actions}>
+        {canSell && (
+          <Button title={t.resaleSellTitle} inline onPress={() => router.push({ pathname: '/resale/sell/[bookingId]', params: { bookingId: booking.id } })} />
+        )}
+        {(listed > 0 || sold > 0) && <Button title={t.resaleUi.manageListings} kind="dark" inline onPress={() => router.push('/resale/mine')} />}
+      </View>
     </Panel>
   );
 }
 
 const styles = StyleSheet.create({
   parts: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 5 },
-  pill: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3, alignSelf: 'flex-start' },
-  toggles: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  toggle: { borderWidth: 1.5, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 9, minWidth: 72, alignItems: 'center' },
-  hidden: { width: 152, height: 152, borderWidth: 1, borderStyle: 'dashed', borderRadius: 12, padding: 12, alignItems: 'center', justifyContent: 'center' },
-  note: { fontSize: 12, marginTop: 12, lineHeight: 18 },
-  h2: { fontSize: 18, fontWeight: '800', marginBottom: 8 },
+  twoCols: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 10 },
+  half: { flexBasis: '48%', flexGrow: 1 },
+  hidden: {
+    width: 146, height: 146, borderWidth: 1, borderStyle: 'dashed', borderColor: colors.line, backgroundColor: colors.control,
+    borderRadius: 12, padding: 12, alignItems: 'center', justifyContent: 'center',
+  },
+  count: { fontSize: 13, lineHeight: 20, marginBottom: 4 },
+  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 4 },
 });

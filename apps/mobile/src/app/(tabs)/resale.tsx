@@ -1,90 +1,119 @@
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback } from 'react';
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useMemo, useState } from 'react';
+import { RefreshControl, Text, View } from 'react-native';
+import { accountsApi } from '../../api/accounts';
+import { api } from '../../api/client';
 import { resaleApi } from '../../api/resale';
 import { useRequest } from '../../api/useRequest';
-import { Parts, Pill, SignInPrompt } from '../../components/resale';
-import { Button, Message, Panel } from '../../components/ui';
 import { useAuth } from '../../auth';
-import { showDate } from '../../format';
+import { Chips } from '../../components/Chips';
+import { Columns, Page } from '../../components/page';
+import { ListingRow } from '../../components/resale/ListingRow';
+import { MarketCard } from '../../components/resale/MarketCard';
+import { OwnersPanel } from '../../components/resale/OwnersPanel';
+import { PanelHead, ResaleHero, Subtle } from '../../components/resale/parts';
+import { Button, Eyebrow, H2, H3, Notice, Panel, SmallCard, Spinner } from '../../components/ui';
 import { useI18n } from '../../i18n';
-import { describeSeats } from '../../seats';
-import { useTheme } from '../../theme';
+import { useLayout } from '../../layout';
+import { colors } from '../../theme';
+import { useType } from '../../typography';
 
-/** Resale marketplace (BRD 11): open listings, soonest show first. Anyone can browse; buying needs an account. */
+const ALL = 'all';
+
+/**
+ * Resale marketplace (BRD 11), laid out as the live resale.html: the hero, open listings (soonest show first) with
+ * area tabs beside the "For ticket owners" panel, the seller's open listings, and how resale protects both sides.
+ * Anyone can browse; buying and selling need an account.
+ */
 export default function Resale() {
-  const theme = useTheme();
-  const { t, lang, rtl } = useI18n();
-  const { account } = useAuth();
+  const { t, lang } = useI18n();
+  const { type } = useType();
+  const { wide } = useLayout();
+  const { account, ready } = useAuth();
+  const [area, setArea] = useState(ALL);
   // Who is viewing changes the "Your listing" labels.
   const listings = useRequest(resaleApi.listings, [lang, account?.id]);
-  useFocusEffect(useCallback(() => listings.reload(), [listings.reload]));
+  // Listings carry the cinema but not its area: the cinema list maps one to the other for the area tabs.
+  const cinemas = useRequest(() => api.cinemas().catch(() => []), [lang]);
+  const owner = useRequest(async () => {
+    if (!ready || !account) return null;
+    const [bookings, payout, mine] = await Promise.all([accountsApi.bookings(), resaleApi.payoutMethod(), resaleApi.myListings()]);
+    return { bookings, payout, mine };
+  }, [lang, ready, account?.id]);
+  const reloadAll = useCallback(() => {
+    listings.reload();
+    owner.reload();
+  }, [listings.reload, owner.reload]);
+  useFocusEffect(reloadAll);
 
-  if (listings.error && !listings.data) return <Message text={t.loadFailed} onRetry={listings.reload} />;
-  if (!listings.data) return <ActivityIndicator style={{ flex: 1 }} color={theme.accent} />;
+  const areaOf = useMemo(() => new Map((cinemas.data ?? []).map((c) => [c.id, c.area as string])), [cinemas.data]);
+  // The areas that have a cinema, in the app's area order (Maadi, New Cairo, 6th of October).
+  const areas = Object.keys(t.areas).filter((a) => [...areaOf.values()].includes(a));
+  const shown = (listings.data ?? []).filter((l) => area === ALL || areaOf.get(l.showtime.cinema.id) === area);
+  const open = (owner.data?.mine ?? []).filter((l) => l.status === 'open');
+
+  const market = (
+    <View>
+      <Eyebrow>{t.resaleUi.marketKicker}</Eyebrow>
+      <H2>{t.resaleUi.marketTitle}</H2>
+      <Text style={[type.body, { color: colors.muted, marginTop: 3, marginBottom: 15 }]}>{t.resaleUi.marketLead}</Text>
+      {areas.length ? (
+        <Chips variant="tab" scroll label={t.resaleUi.areaFilter} value={area} onChange={setArea} style={{ marginBottom: 13, flexGrow: 0 }}
+          options={[{ value: ALL, label: t.resaleUi.allTickets }, ...areas.map((a) => ({ value: a, label: t.areas[a] ?? a }))]} />
+      ) : null}
+      {listings.error && !listings.data ? (
+        <Panel>
+          <Text style={[type.body, { marginBottom: 12 }]}>{t.loadFailed}</Text>
+          <Button title={t.tryAgain} size="small" inline onPress={listings.reload} />
+        </Panel>
+      ) : !listings.data ? <Spinner /> : shown.length ? (
+        <View style={{ gap: 10 }}>
+          {shown.map((item) => (
+            <MarketCard key={item.id} item={item} onOpen={() => router.push({ pathname: '/resale/[id]', params: { id: item.id } })} />
+          ))}
+        </View>
+      ) : (
+        <Panel>
+          <H3 style={{ marginBottom: 4 }}>{area === ALL ? t.resaleEmptyTitle : t.resaleUi.noneInArea(t.areas[area] ?? area)}</H3>
+          <Text style={[type.small, { color: colors.muted }]}>{area === ALL ? t.resaleEmptyBody : t.resaleUi.tryAnotherArea}</Text>
+        </Panel>
+      )}
+      <Subtle>{t.resaleUi.refundsPolicy}</Subtle>
+    </View>
+  );
 
   return (
-    <FlatList
-      data={listings.data}
-      keyExtractor={(l) => l.id}
-      contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 32 }}
-      refreshing={listings.loading}
-      onRefresh={listings.reload}
-      ListHeaderComponent={
-        <View style={{ marginBottom: 4 }}>
-          <Text style={[styles.kicker, { color: theme.accent }, rtl && styles.noTracking]}>{t.resaleKicker}</Text>
-          <Text style={[styles.h1, { color: theme.ink }, rtl && styles.noTracking]}>{t.resaleHero}</Text>
-          <Text style={{ color: theme.muted, marginTop: 6, lineHeight: 21 }}>{t.resaleIntro}</Text>
-          {account ? (
-            <>
-              <Button title={t.resaleMyListings} kind="secondary" onPress={() => router.push('/resale/mine')} style={{ marginTop: 14 }} />
-              <Text style={{ color: theme.muted, fontSize: 12, marginTop: 8 }}>{t.resaleHowToSell}</Text>
-            </>
-          ) : (
-            <SignInPrompt text={t.resaleSignInNote} style={{ marginTop: 14 }} />
-          )}
-        </View>
-      }
-      ListEmptyComponent={
-        <Panel>
-          <Text style={[styles.title, { color: theme.ink }]}>{t.resaleEmptyTitle}</Text>
-          <Text style={{ color: theme.muted, marginTop: 4, lineHeight: 20 }}>{t.resaleEmptyBody}</Text>
+    <Page footer="resale" refreshControl={<RefreshControl refreshing={listings.loading && !!listings.data} onRefresh={reloadAll} tintColor={colors.gold} />}>
+      <ResaleHero />
+      <Columns ratio={[1.1, 0.9]} gap={20}>
+        {[
+          <View key="market">{market}</View>,
+          <OwnersPanel key="owners" account={ready ? account : null}
+            bookings={owner.data?.bookings ?? (owner.error ? [] : undefined)}
+            payout={owner.data ? owner.data.payout : owner.error ? null : undefined} />,
+        ]}
+      </Columns>
+
+      {account ? (
+        <Panel padding={18} style={{ marginTop: 27 }}>
+          <PanelHead eyebrow={t.resaleUi.mineKicker} title={t.resaleUi.mineTitle} />
+          {!owner.data ? (owner.error ? <Text style={[type.body, { color: colors.muted }]}>{t.loadFailed}</Text> : <Spinner size="small" />)
+            : open.length ? open.slice(0, 3).map((l, i) => (
+              <ListingRow key={l.id} listing={l} onChanged={reloadAll} last={i === Math.min(open.length, 3) - 1} />
+            )) : <Text style={[type.body, { color: colors.muted }]}>{t.resaleUi.mineEmpty}</Text>}
+          {owner.data?.mine.length ? (
+            <Button title={t.resaleUi.manageListings} kind="soft" size="small" inline onPress={() => router.push('/resale/mine')} style={{ marginTop: 12 }} />
+          ) : null}
         </Panel>
-      }
-      renderItem={({ item }) => (
-        <Pressable onPress={() => router.push({ pathname: '/resale/[id]', params: { id: item.id } })}
-          accessibilityRole="button" accessibilityLabel={`${item.showtime.movie.title}, ${item.showtime.cinema.name}, ${t.resalePlusFee(t.egp(item.price))}`}>
-          <Panel>
-            <View style={styles.row}>
-              <View style={[styles.poster, { backgroundColor: item.showtime.movie.poster.from }]}>
-                <Text style={styles.symbol}>{item.showtime.movie.poster.symbol}</Text>
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.title, { color: theme.ink }]}>{item.showtime.movie.title}</Text>
-                <Text style={{ color: theme.muted }}>{item.showtime.cinema.name}</Text>
-                <Parts parts={[showDate(item.showtime.startsAt, t), item.showtime.format]} color={theme.ink} style={{ marginTop: 4 }} />
-                <Parts parts={[t.seatsList(describeSeats(item.tickets.map((x) => x.seat))), t.resaleTicketCount(item.tickets.length)]}
-                  color={theme.ink} style={{ marginTop: 2 }} />
-              </View>
-            </View>
-            <View style={[styles.row, styles.footer, { borderColor: theme.line }]}>
-              <Text style={{ color: theme.good, fontWeight: '800', fontSize: 16, flex: 1 }}>{t.resalePlusFee(t.egp(item.price))}</Text>
-              {item.mine && <Pill label={t.resaleYours} tone="accent" />}
-            </View>
-          </Panel>
-        </Pressable>
-      )}
-    />
+      ) : null}
+
+      <View style={{ paddingTop: 34 }}>
+        <Eyebrow>{t.resaleUi.protectKicker}</Eyebrow>
+        <View style={[{ marginTop: 13, gap: 16 }, wide && { flexDirection: 'row' }]}>
+          {t.resaleUi.protect.map((c) => <SmallCard key={c.title} title={c.title} body={c.body} style={wide ? { flex: 1 } : undefined} />)}
+        </View>
+        <Notice style={{ marginTop: 14 }}>{t.resaleUi.showChangeNotice}</Notice>
+      </View>
+    </Page>
   );
 }
-
-const styles = StyleSheet.create({
-  kicker: { fontSize: 11, fontWeight: '800', letterSpacing: 1.8 },
-  h1: { fontSize: 26, fontWeight: '800', letterSpacing: -0.6, marginTop: 4 },
-  noTracking: { letterSpacing: 0 }, // Arabic is cursive; letter spacing breaks the joins.
-  title: { fontSize: 17, fontWeight: '800' },
-  row: { flexDirection: 'row', gap: 12, alignItems: 'center' },
-  poster: { width: 56, height: 76, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  symbol: { fontSize: 26, color: '#ffffffcc' },
-  footer: { marginTop: 12, paddingTop: 10, borderTopWidth: StyleSheet.hairlineWidth },
-});

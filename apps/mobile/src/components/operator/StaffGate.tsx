@@ -1,12 +1,14 @@
 import { router } from 'expo-router';
 import type { ReactNode } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text } from 'react-native';
+import { Text, View } from 'react-native';
 import type { Account } from '../../api/auth';
 import { useAuth } from '../../auth';
 import { useI18n } from '../../i18n';
-import { useTheme } from '../../theme';
-import { Button, Panel } from '../ui';
-import { Kicker } from './parts';
+import { colors } from '../../theme';
+import { useType } from '../../typography';
+import { Page } from '../page';
+import { Button, Eyebrow, Panel, Spinner } from '../ui';
+import { PanelTitle } from './parts';
 import { StaffSignIn } from './StaffSignIn';
 
 /**
@@ -14,29 +16,25 @@ import { StaffSignIn } from './StaffSignIn';
  * customer account is signed in, a note that the portal is for cinema staff.
  */
 export function StaffGate({ children }: { children: (account: Account) => ReactNode }) {
-  const theme = useTheme();
   const { t } = useI18n();
+  const { type } = useType();
   const { account, ready, signOut } = useAuth();
 
-  if (!ready) return <ActivityIndicator style={{ flex: 1 }} color={theme.accent} />;
+  if (!ready) return <Page footer="operator"><Spinner /></Page>;
   if (account?.role === 'operator') return children(account);
   return (
-    <ScrollView contentContainerStyle={styles.page} keyboardShouldPersistTaps="handled">
+    <Page footer="operator" contentStyle={{ paddingTop: 44 }}>
       {!account ? <StaffSignIn /> : (
-        <Panel style={styles.notice}>
-          <Kicker>{t.op.kicker}</Kicker>
-          <Text style={[styles.title, { color: theme.ink }]}>{t.op.customerTitle}</Text>
-          <Text style={{ color: theme.muted, lineHeight: 21, marginBottom: 18 }}>{t.op.customerBody(account.name, account.email)}</Text>
-          <Button title={t.op.backToMovies} onPress={() => router.dismissTo('/')} />
-          <Button title={t.op.signOut} kind="secondary" style={{ marginTop: 10 }} onPress={signOut} />
+        <Panel padding={28} style={{ width: '100%', maxWidth: 480, alignSelf: 'center' }}>
+          <Eyebrow>{t.operatorUi.kicker}</Eyebrow>
+          <PanelTitle>{t.op.customerTitle}</PanelTitle>
+          <Text style={[type.body, { color: colors.muted, marginBottom: 18 }]}>{t.op.customerBody(account.name, account.email)}</Text>
+          <View style={{ gap: 12 }}>
+            <Button title={t.op.backToMovies} onPress={() => router.dismissTo('/')} />
+            <Button title={t.op.signOut} kind="soft" onPress={signOut} />
+          </View>
         </Panel>
       )}
-    </ScrollView>
+    </Page>
   );
 }
-
-const styles = StyleSheet.create({
-  page: { padding: 16, paddingTop: 24, paddingBottom: 40 },
-  notice: { width: '100%', maxWidth: 440, alignSelf: 'center' },
-  title: { fontSize: 22, fontWeight: '800', marginTop: 6, marginBottom: 6 },
-});

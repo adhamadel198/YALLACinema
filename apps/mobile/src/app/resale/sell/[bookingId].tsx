@@ -1,17 +1,21 @@
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useLayoutEffect, useRef, useState, type ComponentProps } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useLayoutEffect, useRef, useState, type ComponentProps, type ReactNode } from 'react';
+import { KeyboardAvoidingView, Platform, Text, View } from 'react-native';
 import { api, ApiError } from '../../../api/client';
-import { RESALE_BUYER_FEE, RESALE_SELLER_FEE, resaleApi, sellerReceives, type PayoutDetails, type PayoutMethod } from '../../../api/resale';
+import { RESALE_BUYER_FEE, RESALE_SELLER_FEE, resaleApi, sellerReceives, type PayoutDetails, type PayoutMethod, type TicketStatus } from '../../../api/resale';
 import { useRequest } from '../../../api/useRequest';
-import { Chips } from '../../../components/Chips';
-import { SeatToggles, SignInPrompt } from '../../../components/resale';
-import { Button, Line, Message, Panel } from '../../../components/ui';
 import { useAuth } from '../../../auth';
-import { showDate } from '../../../format';
+import { signInHref } from '../../../auth/routes';
+import { Chips } from '../../../components/Chips';
+import { Field } from '../../../components/form';
+import { Crumbs, Page } from '../../../components/page';
+import { SeatToggles } from '../../../components/resale';
+import { PanelHead, showWhen, Subtle, VerifyBox, VerifyLine } from '../../../components/resale/parts';
+import { Button, Line, Notice, Panel, Spinner, StatusText } from '../../../components/ui';
 import { useI18n } from '../../../i18n';
 import { showStarted, showStartsAt } from '../../../liveShow';
-import { useTheme } from '../../../theme';
+import { colors } from '../../../theme';
+import { useType } from '../../../typography';
 
 type PayoutForm = { kind: PayoutDetails['kind']; mobile: string; bankName: string; accountName: string; accountNumber: string };
 const emptyPayout: PayoutForm = { kind: 'wallet', mobile: '', bankName: '', accountName: '', accountNumber: '' };
@@ -19,13 +23,16 @@ const emptyPayout: PayoutForm = { kind: 'wallet', mobile: '', bankName: '', acco
 /** Arabic keyboards type ٠١٢…; prices and account numbers need 012…. */
 const latinDigits = (s: string) => s.replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 0x660));
 
+const backToMarket = () => (router.canGoBack() ? router.back() : router.replace('/resale'));
+
 /**
  * List tickets from one booking for resale (BRD 11): payout details first, then which tickets and the price
  * (at most what the seller paid per ticket, excluding fees), with what the buyer pays and the seller receives.
+ * Drawn as the live resale.html "For ticket owners" panel.
  */
 export default function SellTickets() {
-  const theme = useTheme();
   const { t, lang } = useI18n();
+  const { type, font } = useType();
   const { account, ready } = useAuth();
   const { bookingId } = useLocalSearchParams<{ bookingId: string }>();
   // Loads once the saved session is restored: loaded before it, a seller's payout details looked missing.
@@ -56,17 +63,44 @@ export default function SellTickets() {
     setPriceText((p) => p || String(loaded.booking.showtime.price));
   }, [loaded]);
 
-  const title = <Stack.Screen options={{ title: t.resaleSellTitle }} />;
-  if (!ready || (account && !loaded && !data.error)) return <>{title}<ActivityIndicator style={{ flex: 1 }} color={theme.accent} /></>;
+  /** The page: breadcrumb (web) and one centred panel headed "For ticket owners · List your ticket". */
+  const page = (children: ReactNode) => (
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <Stack.Screen options={{ title: t.resaleSellTitle }} />
+      <Page footer="resale" contentStyle={{ paddingTop: Platform.OS === 'web' ? 0 : 25 }}>
+        <View style={{ width: '100%', maxWidth: 560, alignSelf: 'center' }}>
+          <Crumbs items={[{ label: t.shell.crumbHome, href: '/' }, { label: t.resaleTitle, href: '/resale' }, { label: t.resaleSellTitle }]} />
+          <Panel>
+            <PanelHead eyebrow={t.resaleUi.ownersKicker} title={t.resaleUi.ownersTitle} style={{ marginBottom: 1 }} />
+            <Text style={[type.small, { color: colors.muted }]}>{t.resaleUi.ownersBody}</Text>
+            {children}
+          </Panel>
+        </View>
+      </Page>
+    </KeyboardAvoidingView>
+  );
+  /** A guard state: the message in a notice, and a way back to the market. */
+  const blocked = (message: string, action?: ReactNode) => page(
+    <View style={{ marginTop: 14, gap: 12 }}>
+      <Notice role="alert">{message}</Notice>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 9 }}>
+        {action}
+        <Button title={t.resaleBackToMarket} kind="soft" size="small" inline onPress={backToMarket} />
+      </View>
+    </View>,
+  );
+
+  if (!ready || (account && !loaded && !data.error)) return page(<Spinner />);
   if (!account) {
-    return <>{title}<View style={{ padding: 16 }}><SignInPrompt text={t.resaleSignInToSell} /></View></>;
+    return blocked(t.resaleSignInToSell,
+      <Button title={t.resaleGoSignIn} size="small" inline onPress={() => router.push(signInHref(`/resale/sell/${bookingId}`))} />);
   }
-  if (!loaded) return <>{title}<Message text={t.loadFailed} onRetry={data.reload} /></>;
+  if (!loaded) return blocked(t.loadFailed, <Button title={t.tryAgain} size="small" inline onPress={data.reload} />);
 
   const b = loaded.booking;
-  if (b.accountId !== account.id) return <>{title}<Message text={t.resaleNotOwner} /></>;
-  if (b.showChange?.kind === 'cancelled') return <>{title}<Message text={t.resaleShowCancelled} /></>;
-  if (showStarted(b)) return <>{title}<Message text={t.resaleShowStarted} /></>;
+  if (b.accountId !== account.id) return blocked(t.resaleNotOwner);
+  if (b.showChange?.kind === 'cancelled') return blocked(t.resaleShowCancelled);
+  if (showStarted(b)) return blocked(t.resaleShowStarted);
   const sellable = b.tickets.filter((x) => x.status === 'valid');
   const paid = b.showtime.price;
   const price = Number(latinDigits(priceText.trim()));
@@ -126,114 +160,87 @@ export default function SellTickets() {
     }
   }
 
-  const field = (key: Exclude<keyof PayoutForm, 'kind'>, label: string, props: Partial<ComponentProps<typeof TextInput>> = {}, ltr = false) => (
-    <View style={{ marginBottom: 12 }}>
-      <Text style={[styles.label, { color: theme.muted }]}>{label}</Text>
-      <TextInput
-        value={form[key]}
-        onChangeText={(v) => setForm((f) => ({ ...f, [key]: v }))}
-        placeholderTextColor={theme.muted}
-        accessibilityLabel={label}
-        {...props}
-        style={[styles.input, { color: theme.ink, borderColor: theme.line, backgroundColor: theme.panel },
-          ltr && { direction: 'ltr', textAlign: lang === 'ar' ? 'right' : 'left' }]}
-      />
-    </View>
+  const field = (key: Exclude<keyof PayoutForm, 'kind'>, label: string, props: Partial<ComponentProps<typeof Field>> = {}) => (
+    <Field tone="cream" label={label} value={form[key]} onChangeText={(v) => setForm((f) => ({ ...f, [key]: v }))}
+      style={{ marginVertical: 4 }} {...props} />
   );
 
-  return (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      {title}
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
-        <Panel>
-          <Text style={[styles.title, { color: theme.ink }]}>{b.showtime.movie.title}</Text>
-          <Text style={{ color: theme.muted }}>{b.showtime.cinema.name}</Text>
-          <Text style={{ color: theme.muted, marginBottom: 10 }}>{showDate(showStartsAt(b), t)}</Text>
-          <Text style={{ color: theme.ink }}>{t.resaleYouPaid(t.egp(paid))}</Text>
-        </Panel>
-
-        <Text style={[styles.h2, { color: theme.ink }]}>{t.resalePayoutTitle}</Text>
+  return page(
+    <>
+      <VerifyBox style={{ marginTop: 13 }}>
+        <VerifyLine label={t.resaleUi.accountLabel}>{account.name}</VerifyLine>
         {showPayoutForm ? (
-          <Panel>
-            <Text style={{ color: theme.muted, marginBottom: 12 }}>{t.resalePayoutWhy}</Text>
-            <View style={{ marginBottom: 14 }}>
-              <Chips
-                label={t.resalePayoutTitle}
-                options={[{ value: 'wallet' as const, label: t.resalePayoutWallet }, { value: 'bank' as const, label: t.resalePayoutBank }]}
-                value={form.kind}
-                onChange={(kind) => setForm((f) => ({ ...f, kind }))}
-              />
-            </View>
+          <>
+            <VerifyLine>{t.resalePayoutWhy}</VerifyLine>
+            <Chips variant="cream" label={t.resalePayoutTitle} value={form.kind} onChange={(kind) => setForm((f) => ({ ...f, kind }))}
+              style={{ marginVertical: 2 }}
+              options={[{ value: 'wallet' as const, label: t.resalePayoutWallet }, { value: 'bank' as const, label: t.resalePayoutBank }]} />
             {form.kind === 'wallet' ? (
-              field('mobile', t.resaleWalletNumber, { keyboardType: 'phone-pad', placeholder: t.mobilePlaceholder, autoComplete: 'tel' }, true)
+              field('mobile', t.resaleWalletNumber, { keyboardType: 'phone-pad', placeholder: t.mobilePlaceholder, autoComplete: 'tel', ltr: true })
             ) : (
               <>
                 {field('bankName', t.resaleBankName)}
                 {field('accountName', t.resaleAccountName, { autoComplete: 'name' })}
-                {field('accountNumber', t.resaleAccountNumber, { autoCapitalize: 'characters' }, true)}
+                {field('accountNumber', t.resaleAccountNumber, { autoCapitalize: 'characters', ltr: true })}
               </>
             )}
-            <Text style={{ color: theme.muted, fontSize: 12, marginBottom: 12 }}>{t.resaleUnverified}</Text>
-            {payoutError && <Text style={{ color: theme.accent, marginBottom: 12 }}>{payoutError}</Text>}
-            <Button title={t.resaleSavePayout} onPress={savePayout} busy={savingPayout} disabled={!payoutValid} />
-            {payout && (
-              <Button title={t.resaleCancelChange} kind="secondary" style={{ marginTop: 10 }}
-                onPress={() => { setEditingPayout(false); setForm(emptyPayout); setPayoutError(undefined); }} />
-            )}
-          </Panel>
-        ) : (
-          <Panel>
-            <View style={styles.row}>
-              <Text style={{ color: theme.ink, fontWeight: '700', flex: 1 }}>{t.resalePayoutTo(payout.label)}</Text>
-              <Button title={t.resaleChange} kind="secondary" onPress={() => setEditingPayout(true)} style={{ minHeight: 36, paddingHorizontal: 12 }} />
+            <Text style={[type.micro, { color: colors.creamMuted }]}>{t.resaleUnverified}</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 9, marginTop: 2 }}>
+              <Button title={t.resaleSavePayout} kind="soft" size="small" inline onPress={savePayout} busy={savingPayout} disabled={!payoutValid} />
+              {payout ? (
+                <Button title={t.resaleCancelChange} kind="soft" size="small" inline
+                  onPress={() => { setEditingPayout(false); setForm(emptyPayout); setPayoutError(undefined); }} />
+              ) : null}
             </View>
-            {payout.verification !== 'verified' && (
-              <Text style={{ color: theme.muted, fontSize: 12, marginTop: 8 }}>{t.resaleUnverified}</Text>
-            )}
-          </Panel>
+            {payoutError ? <VerifyLine tone="danger">{payoutError}</VerifyLine> : null}
+          </>
+        ) : (
+          <>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 10, rowGap: 6 }}>
+              <Text style={[font(700), { color: colors.verifyInk, fontSize: 12, lineHeight: 18.6, flexShrink: 1 }]}>{t.resalePayoutTo(payout.label)}</Text>
+              <Button title={t.resaleChange} kind="soft" size="small" inline onPress={() => setEditingPayout(true)} />
+            </View>
+            {payout.verification !== 'verified' ? <VerifyLine>{t.resaleUi.payoutUnverified}</VerifyLine> : null}
+          </>
         )}
+      </VerifyBox>
 
-        <Text style={[styles.h2, { color: theme.ink }]}>{t.resaleTicketsToSell}</Text>
+      <Text role="heading" aria-level={3} style={[font(700), { color: colors.ink, fontSize: 14, lineHeight: 21.7, marginTop: 17, marginBottom: 8 }]}>
+        {t.resaleUi.eligibleBooking(b.reference)}
+      </Text>
+      <Text style={type.micro}>
+        {`${b.showtime.movie.title} · ${b.showtime.cinema.name} · ${showWhen(showStartsAt(b), t)}\n${t.resaleUi.originalEach(t.egp(paid))}`}
+      </Text>
+      <View style={{ marginTop: 3 }}>
         <SeatToggles
-          options={b.tickets.map((x) => ({
-            id: x.id, label: t.seat(x.seat), disabled: x.status !== 'valid',
-            note: x.status === 'valid' ? undefined : t.resaleTicketStatus[x.status as keyof typeof t.resaleTicketStatus],
-          }))}
+          options={b.tickets.map((x) => {
+            const status = x.status as TicketStatus;
+            return status === 'valid'
+              ? { id: x.id, label: t.seat(x.seat), note: t.resaleUi.seatUnused }
+              : { id: x.id, label: t.resaleUi.seatWithState(t.seat(x.seat), t.resaleTicketStatus[status] ?? x.status), note: t.resaleUi.ticketWhy[status], disabled: true };
+          })}
           selected={selected}
           onToggle={(id) => setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]))}
         />
-        {!sellable.length && <Text style={{ color: theme.muted, marginTop: 8 }}>{t.resaleNothingToSell}</Text>}
+      </View>
+      {!sellable.length && <Text style={[type.small, { color: colors.muted, marginTop: 4 }]}>{t.resaleNothingToSell}</Text>}
 
-        <Text style={[styles.h2, { color: theme.ink }]}>{t.resalePriceLabel(t.egp(paid))}</Text>
-        <TextInput
-          value={priceText}
-          onChangeText={setPriceText}
-          keyboardType="number-pad"
-          accessibilityLabel={t.resalePriceLabel(t.egp(paid))}
-          style={[styles.input, { color: theme.ink, borderColor: priceOk ? theme.line : theme.accent, backgroundColor: theme.panel, direction: 'ltr', textAlign: lang === 'ar' ? 'right' : 'left' }]}
-        />
-        {!priceOk && <Text style={{ color: theme.accent, marginTop: 6 }}>{t.resalePriceCap}</Text>}
+      <Field label={t.resaleUi.priceLabel(t.egp(paid))} value={priceText} onChangeText={setPriceText} keyboardType="number-pad" ltr
+        error={priceOk ? undefined : t.resalePriceCap} style={{ marginBottom: 5 }} />
+      <Text style={type.micro}>{t.resaleUi.proceedsLine(priceOk ? t.egp(each) : '–')}</Text>
 
-        <Panel style={{ marginTop: 16 }}>
-          <Line label={t.resaleBuyerPaysLine} value={priceOk ? t.egp(price + RESALE_BUYER_FEE) : '–'} />
-          <Line label={t.resaleFeeLine} value={`−${t.egp(RESALE_SELLER_FEE)}`} />
-          <Line label={t.resaleYouGetLine} value={priceOk ? t.egp(each) : '–'} strong />
-          {selected.length > 1 && <Line label={t.resaleTotalIfSold} value={priceOk ? t.egp(each * selected.length) : '–'} />}
-          <Text style={{ color: theme.muted, fontSize: 12, marginTop: 8, lineHeight: 18 }}>{t.resaleSellerRules}</Text>
-        </Panel>
+      <View style={{ marginTop: 10 }}>
+        <Line label={t.resaleBuyerPaysLine} value={priceOk ? t.egp(price + RESALE_BUYER_FEE) : '–'} />
+        <Line label={t.resaleFeeLine} value={`−${t.egp(RESALE_SELLER_FEE)}`} />
+        <Line total label={t.resaleYouGetLine} value={priceOk ? t.egp(each) : '–'} />
+        {selected.length > 1 && <Line label={t.resaleTotalIfSold} value={priceOk ? t.egp(each * selected.length) : '–'} />}
+        <Text style={[type.micro, { marginTop: 6 }]}>{t.resaleSellerRules}</Text>
+      </View>
 
-        {error && <Text style={{ color: theme.accent, marginVertical: 12 }}>{error}</Text>}
-        <Button title={t.resaleListButton(selected.length)} onPress={list} busy={busy}
-          disabled={!payout || editingPayout || !selected.length || !priceOk} style={{ marginTop: 16 }} />
-      </ScrollView>
-    </KeyboardAvoidingView>
+      <Button title={t.resaleUi.publish} onPress={list} busy={busy}
+        disabled={!payout || editingPayout || !selected.length || !priceOk} style={{ marginTop: 13 }} />
+      {error ? <StatusText tone="danger" style={{ marginTop: 9 }}>{error}</StatusText> : null}
+      <Subtle style={{ marginBottom: 0 }}>{t.resaleUi.closeNote}</Subtle>
+    </>,
   );
 }
-
-const styles = StyleSheet.create({
-  title: { fontSize: 20, fontWeight: '800' },
-  h2: { fontSize: 18, fontWeight: '800', marginTop: 24, marginBottom: 10 },
-  label: { fontSize: 13, marginBottom: 4 },
-  input: { borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 16 },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-});

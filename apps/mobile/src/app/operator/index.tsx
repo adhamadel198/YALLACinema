@@ -1,18 +1,22 @@
 import { router, Stack, useFocusEffect } from 'expo-router';
-import { useCallback, useRef, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useRef, useState, type ReactNode } from 'react';
+import { ScrollView, Text, View } from 'react-native';
 import type { Account } from '../../api/auth';
 import { ApiError } from '../../api/client';
-import { operatorApi, type StaffBooking, type StaffShow } from '../../api/operator';
+import { operatorApi, type StaffBooking, type StaffDay, type StaffShow } from '../../api/operator';
 import { useRequest } from '../../api/useRequest';
 import { useAuth } from '../../auth';
 import { Chips } from '../../components/Chips';
-import { Badge, BookingRow, BookingsTable, dayLabel, Field, joinLine, Kicker, Page, Stat, useWide } from '../../components/operator/parts';
+import { Field } from '../../components/form';
+import { BookingRow, BookingsTable, DataTable, dayLabel, joinLine, RowsBlock, SideLink, Stat } from '../../components/operator/parts';
 import { StaffGate } from '../../components/operator/StaffGate';
-import { Button, Message, Panel } from '../../components/ui';
+import { Page } from '../../components/page';
+import { AlertPill, Badge, Button, Eyebrow, H2, Message, Notice, Panel, Spinner, StatusText } from '../../components/ui';
 import { useI18n } from '../../i18n';
 import type { Strings } from '../../i18n/strings';
-import { useTheme } from '../../theme';
+import { useLayout } from '../../layout';
+import { colors } from '../../theme';
+import { useType } from '../../typography';
 
 /** Cinema operator portal (BRD 5.2, 7.5): staff see their cinema's bookings by day and show, and correct listings. */
 export default function OperatorPortal() {
@@ -27,11 +31,12 @@ export default function OperatorPortal() {
 
 const openShow = (id: string) => router.push({ pathname: '/operator/showtime/[id]', params: { id } });
 
+/** The live `.admin` panel: a sidebar (cinema, days, help, sign out) beside the day's stats, listings and bookings. */
 function Dashboard({ account }: { account: Account }) {
-  const theme = useTheme();
   const { t } = useI18n();
+  const { type, font } = useType();
+  const { wide } = useLayout();
   const { signOut } = useAuth();
-  const wide = useWide();
   const [day, setDay] = useState<string>();
   // A session that expired signs out (AuthProvider), which brings back the sign-in form.
   const data = useRequest(() => operatorApi.day(day).catch((e) => {
@@ -40,105 +45,182 @@ function Dashboard({ account }: { account: Account }) {
   // Back from correcting a show: show what changed.
   useFocusEffect(useCallback(() => data.reload(), [data.reload]));
 
-  if (!data.data && data.error) return <Message text={data.error} onRetry={data.reload} />;
-  if (!data.data) return <ActivityIndicator style={{ flex: 1 }} color={theme.accent} />;
+  if (!data.data && data.error) return <Page footer="operator"><Message text={data.error} onRetry={data.reload} /></Page>;
+  if (!data.data) return <Page footer="operator"><Spinner /></Page>;
   const d = data.data;
-  const dayName = d.day === d.today ? t.op.today : dayLabel(d.day, t);
-
-  const side = (
+  const today = d.day === d.today;
+  const dayName = today ? t.op.today : dayLabel(d.day, t);
+  const days = (
+    <Chips variant="side" column={wide} scroll={!wide} label={t.op.day} value={d.day} onChange={setDay}
+      options={d.days.map((x) => ({ value: x, label: x === d.today ? t.op.today : dayLabel(x, t) }))} />
+  );
+  const extra = (
     <>
-      <Panel style={{ marginBottom: 16 }}>
-        <Kicker>{t.op.kicker}</Kicker>
-        <Text style={[styles.cinema, { color: theme.ink }]}>{d.cinema.name}</Text>
-        <Text style={{ color: theme.muted, marginBottom: 12 }}>{t.op.signedInAs(account.name)}</Text>
-        <Button title={t.op.signOut} kind="secondary" onPress={signOut} style={styles.small} />
-      </Panel>
-      <FindBooking />
-      <Text style={[styles.label, { color: theme.ink }]}>{t.op.day}</Text>
-      <Chips label={t.op.day} value={d.day} onChange={setDay}
-        options={d.days.map((x) => ({ value: x, label: x === d.today ? t.op.today : dayLabel(x, t) }))} />
+      <SideLink label={t.operatorUi.help} onPress={() => router.push('/support')} />
+      <SideLink label={t.op.signOut} onPress={signOut} role="button" />
     </>
   );
 
-  const main = (
-    <>
-      <Text style={[styles.h1, { color: theme.ink }]}>{t.op.bookingsOn(dayName)}</Text>
-      <View style={styles.stats}>
-        <Stat value={String(d.totals.bookings)} label={t.op.statBookings} />
-        <Stat value={String(d.totals.tickets)} label={t.op.statTickets} />
-        <Stat value={t.egp(d.totals.ticketRevenue)} label={t.op.statRevenue} />
-        <Stat value={String(d.totals.shows)} label={t.op.statShows} note={d.totals.cancelled ? t.op.cancelledCount(d.totals.cancelled) : undefined} />
+  const sidebar = (
+    <View style={wide
+      ? { width: 220, padding: 20, borderEndWidth: 1, borderEndColor: colors.line }
+      : { padding: 20, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: colors.line }}>
+      <Eyebrow style={{ paddingHorizontal: 12, paddingTop: 9 }}>{t.operatorUi.workspace}</Eyebrow>
+      <View style={{ marginHorizontal: 12, marginTop: 4, marginBottom: 12 }}>
+        <Text style={[font(800), { color: colors.ink, fontSize: 16, lineHeight: 22 }]}>{d.cinema.name}</Text>
+        <Text style={type.caption}>{t.operatorUi.signedInAs(account.name)}</Text>
       </View>
-      <Text style={{ color: theme.muted, fontSize: 12, marginBottom: 14 }}>{t.op.revenueNote}</Text>
-      {d.shows.length ? d.shows.map((s) => <ShowCard key={s.id} show={s} wide={wide} />)
-        : <Text style={{ color: theme.muted, paddingVertical: 24 }}>{t.op.noShows}</Text>}
-    </>
+      {wide ? (
+        <>
+          {days}
+          <View style={{ height: 1, backgroundColor: colors.line, marginVertical: 12 }} />
+          {extra}
+        </>
+      ) : (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ alignItems: 'center', gap: 4 }}>
+          {days}
+          <View style={{ width: 1, height: 22, backgroundColor: colors.line, marginHorizontal: 6 }} />
+          {extra}
+        </ScrollView>
+      )}
+    </View>
   );
 
-  return (
-    <ScrollView contentContainerStyle={{ padding: wide ? 24 : 16, paddingBottom: 48 }} keyboardShouldPersistTaps="handled">
-      <Page style={wide ? styles.columns : undefined}>
-        {wide ? (
+  const showsAt = new Map(d.shows.map((s) => [s.id, s]));
+  const bookings = d.shows.flatMap((s) => s.bookings);
+  const main = (
+    <View style={{ flex: wide ? 1 : undefined, minWidth: 0, paddingVertical: wide ? 25 : 17, paddingHorizontal: wide ? 25 : 10 }}>
+      <FindBooking>
+        {(search, result) => (
           <>
-            <View style={styles.side}>{side}</View>
-            <View style={{ flex: 1 }}>{main}</View>
-          </>
-        ) : (
-          <>
-            {side}
-            <View style={{ height: 20 }} />
-            {main}
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-start', gap: 14 }}>
+              <View style={{ flexShrink: 1, minWidth: 220 }}>
+                <Eyebrow>{t.operatorUi.kicker}</Eyebrow>
+                <Text role="heading" aria-level={1} style={[type.h2, { fontSize: 25, lineHeight: 30, marginVertical: 4 }]}>{t.op.bookingsOn(dayName)}</Text>
+                <Text style={[type.small, { color: colors.muted }]}>{t.operatorUi.glance}</Text>
+              </View>
+              {search}
+            </View>
+            {result}
           </>
         )}
-      </Page>
-    </ScrollView>
-  );
-}
+      </FindBooking>
 
-/** One show: its listing as customers see it now, its bookings and totals. */
-function ShowCard({ show: s, wide }: { show: StaffShow; wide: boolean }) {
-  const theme = useTheme();
-  const { t, rtl } = useI18n();
-  const action = s.editable
-    ? <Button title={s.cancelled ? t.op.viewShow : t.op.correctListing} kind="secondary" onPress={() => openShow(s.id)} style={styles.small} />
-    : null;
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginVertical: 18 }}>
+        {[
+          { value: String(d.totals.bookings), label: t.op.statBookings },
+          { value: String(d.totals.tickets), label: t.op.statTickets },
+          { value: t.egp(d.totals.ticketRevenue), label: t.op.statRevenue },
+          { value: String(d.totals.shows), label: t.op.statShows, note: d.totals.cancelled ? t.op.cancelledCount(d.totals.cancelled) : undefined },
+        ].map((s) => <Stat key={s.label} {...s} style={{ flexGrow: 1, flexBasis: wide ? 0 : '40%' }} />)}
+      </View>
+      <Notice>{t.op.revenueNote}</Notice>
+
+      <View style={{ paddingTop: 24 }}>
+        <H2 small style={{ marginBottom: 12 }}>{today ? t.operatorUi.listingsToday : t.operatorUi.listingsOn(dayName)}</H2>
+        {d.shows.length ? <ShowsTable day={d} /> : <Text style={[type.small, { color: colors.muted }]}>{t.op.noShows}</Text>}
+      </View>
+
+      <View style={{ paddingTop: 24 }}>
+        <H2 small style={{ marginBottom: 12 }}>{t.operatorUi.bookingsSection}</H2>
+        <BookingsTable bookings={bookings} showOf={(b: StaffBooking) => {
+          const s = showsAt.get(b.showtimeId);
+          return s ? `${s.localTime} · ${s.movie.title}` : '';
+        }} />
+      </View>
+    </View>
+  );
+
   return (
-    <Panel style={{ marginBottom: 12 }}>
-      <View style={styles.showHead}>
-        <Text style={[styles.time, { color: s.cancelled ? theme.muted : theme.ink }, s.cancelled && styles.struck]}>{s.localTime}</Text>
-        <View style={{ flex: 1 }}>
-          <View style={styles.titleRow}>
-            <Text style={[styles.movie, { color: theme.ink }]}>{s.movie.title}</Text>
-            {s.cancelled ? <Badge label={t.op.cancelled} tone="alert" /> : s.corrected ? <Badge label={t.op.corrected} tone="note" /> : null}
-          </View>
-          <Text style={{ color: theme.muted, marginTop: 2 }}>
-            {joinLine(rtl, t.op.formatName(s.format), t.egp(s.price), s.seatsLeft != null && t.op.seatsLeft(s.seatsLeft))}
-          </Text>
-          {s.corrected && s.listed ? (
-            <Text style={{ color: theme.muted, fontSize: 12, marginTop: 2 }}>{t.op.listedAs(s.listed.localTime, t.op.formatName(s.listed.format), t.egp(s.listed.price))}</Text>
-          ) : null}
-        </View>
-        {wide ? action : null}
-      </View>
-      <View style={{ marginTop: 10 }}>
-        <BookingsTable bookings={s.bookings} wide={wide} />
-      </View>
-      {s.bookings.length || (action && !wide) ? (
-        <View style={[styles.showFoot, { borderColor: theme.line }]}>
-          <Text style={{ color: theme.muted, fontSize: 13, flex: 1 }}>
-            {s.bookings.length ? t.op.showTotals(s.totals.bookings, s.totals.tickets, t.egp(s.totals.ticketRevenue)) : ''}
-          </Text>
-          {wide ? null : action}
-        </View>
-      ) : null}
-    </Panel>
+    <Page footer="operator" contentStyle={{ paddingTop: 25 }}>
+      <Panel padding={0} style={[{ overflow: 'hidden', minHeight: 550 }, wide && { flexDirection: 'row' }]}>
+        {sidebar}
+        {main}
+      </Panel>
+    </Page>
   );
 }
 
-/** Search by the reference printed on the ticket. Another cinema's booking is refused by the API (403). */
-function FindBooking() {
-  const theme = useTheme();
+/** The live/correction state of a listing: Published, Corrected, or Cancelled. */
+function ListingState({ show: s, t }: { show: Pick<StaffShow, 'cancelled' | 'corrected'>; t: Strings }) {
+  if (s.cancelled) return <AlertPill label={t.op.cancelled} />;
+  return <Badge label={s.corrected ? t.op.corrected : t.operatorUi.published} />;
+}
+
+/** The day's shows: a table on wide screens, stacked rows on phones. */
+function ShowsTable({ day: d }: { day: StaffDay }) {
+  const { t, rtl } = useI18n();
+  const { type, font } = useType();
+  const { wide } = useLayout();
+  const action = (s: StaffShow) => (s.editable
+    ? <Button title={s.cancelled ? t.op.viewShow : t.op.correctListing} kind="soft" size="small" inline onPress={() => openShow(s.id)} />
+    : null);
+  const listedAs = (s: StaffShow) => (s.corrected && s.listed
+    ? <Text style={[type.micro, { marginTop: 2 }]}>{t.op.listedAs(s.listed.localTime, t.op.formatName(s.listed.format), t.egp(s.listed.price))}</Text>
+    : null);
+  const booked = (s: StaffShow) => (s.bookings.length ? t.op.showTotals(s.totals.bookings, s.totals.tickets, t.egp(s.totals.ticketRevenue)) : '–');
+  const time = (s: StaffShow, size: number) => (
+    <Text style={[font(800), { color: s.cancelled ? colors.muted : colors.ink, fontSize: size, lineHeight: Math.round(size * 1.4) }, s.cancelled && { textDecorationLine: 'line-through' }]}>
+      {s.localTime}
+    </Text>
+  );
+
+  if (!wide) {
+    return (
+      <RowsBlock>
+        {d.shows.map((s) => (
+          <View key={s.id} style={{ gap: 4 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+              {time(s, 20)}
+              <Text style={[font(700), { color: colors.ink, fontSize: 15, flexShrink: 1 }]}>{s.movie.title}</Text>
+              <ListingState show={s} t={t} />
+            </View>
+            <Text style={type.caption}>{joinLine(rtl, t.op.formatName(s.format), t.egp(s.price), s.seatsLeft != null && t.op.seatsLeft(s.seatsLeft))}</Text>
+            {listedAs(s)}
+            {s.bookings.length ? <Text style={type.caption}>{booked(s)}</Text> : null}
+            {s.editable ? <View style={{ flexDirection: 'row', marginTop: 4 }}>{action(s)}</View> : null}
+          </View>
+        ))}
+      </RowsBlock>
+    );
+  }
+  return (
+    <DataTable
+      columns={[
+        { label: t.operatorUi.colMovie, flex: 1.2 },
+        { label: t.operatorUi.colShowtime, flex: 0.9 },
+        { label: t.operatorUi.colFormat, flex: 0.95 },
+        { label: t.operatorUi.colPrice, flex: 0.8 },
+        { label: t.operatorUi.colSeatsLeft, flex: 0.65 },
+        { label: t.operatorUi.colBooked, flex: 1.25 },
+        { label: t.operatorUi.colStatus, flex: 1 },
+        { label: '', flex: 1.4 },
+      ]}
+      padX={10}
+      rows={d.shows.map((s) => ({
+        key: s.id,
+        cells: [
+          <View key="m"><Text style={[font(700), { color: colors.ink, fontSize: 13, lineHeight: 20 }]}>{s.movie.title}</Text>{listedAs(s)}</View>,
+          time(s, 13),
+          t.op.formatName(s.format),
+          t.egp(s.price),
+          s.seatsLeft != null ? String(s.seatsLeft) : '–',
+          booked(s),
+          <ListingState key="s" show={s} t={t} />,
+          action(s),
+        ],
+      }))}
+    />
+  );
+}
+
+/**
+ * Search by the reference printed on the ticket. Another cinema's booking is refused by the API (403).
+ * Renders through `children(search, result)`: the search box sits in the header, the result card under it.
+ */
+function FindBooking({ children }: { children: (search: ReactNode, result: ReactNode) => ReactNode }) {
   const { t } = useI18n();
+  const { wide } = useLayout();
   const [reference, setReference] = useState('');
   const [busy, setBusy] = useState(false);
   // Enter in the field searches too: a second search while one is in flight is ignored.
@@ -171,65 +253,52 @@ function FindBooking() {
     setError(undefined);
   }
 
-  return (
-    <Panel style={{ marginBottom: 16 }}>
-      <Text style={[styles.h2, { color: theme.ink }]}>{t.op.findBooking}</Text>
-      <View style={styles.searchRow}>
-        <View style={{ flex: 1 }}>
-          <Field label={t.op.referenceLabel} value={reference} onChangeText={(v) => setReference(v.toUpperCase())} placeholder={t.op.referencePlaceholder}
-            ltr autoCapitalize="characters" autoCorrect={false} onSubmitEditing={find} returnKeyType="search" error={error} />
-        </View>
-        <Button title={t.op.find} onPress={find} busy={busy} disabled={!reference.trim()} style={styles.findButton} />
+  const search = (
+    <View accessibilityLabel={t.op.findBooking} style={{ width: wide ? 290 : '100%', gap: 6 }}>
+      <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+        <Field label={t.op.referenceLabel} hideLabel value={reference} onChangeText={(v) => setReference(v.toUpperCase())} placeholder={t.op.referencePlaceholder}
+          ltr autoCapitalize="characters" autoCorrect={false} onSubmitEditing={find} returnKeyType="search" aria-invalid={!!error}
+          style={{ flex: 1, marginVertical: 0 }} inputStyle={[{ minHeight: 40, paddingVertical: 8 }, !!error && { borderColor: colors.dangerLine }]} />
+        <Button title={t.op.find} size="small" inline onPress={find} busy={busy} disabled={!reference.trim()} />
       </View>
-      {found ? <FoundBooking booking={found.booking} show={found.show} onClear={clear} t={t} /> : null}
-      {!found && error && reference ? <Button title={t.op.clear} kind="secondary" onPress={clear} style={styles.small} /> : null}
-    </Panel>
+      {error ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <StatusText tone="danger" style={{ flexShrink: 1 }}>{error}</StatusText>
+          {reference ? <Button title={t.op.clear} kind="link" inline onPress={clear} /> : null}
+        </View>
+      ) : null}
+    </View>
   );
+  const result = found ? <FoundBooking booking={found.booking} show={found.show} onClear={clear} /> : null;
+  return <>{children(search, result)}</>;
 }
 
-function FoundBooking({ booking: b, show, onClear, t }: {
-  booking: StaffBooking; show: Omit<StaffShow, 'bookings' | 'totals' | 'seatsLeft'>; onClear: () => void; t: Strings;
+/** The booking a search found, as a cream verify card. */
+function FoundBooking({ booking: b, show, onClear }: {
+  booking: StaffBooking; show: Omit<StaffShow, 'bookings' | 'totals' | 'seatsLeft'>; onClear: () => void;
 }) {
-  const theme = useTheme();
-  const { rtl } = useI18n();
+  const { t, rtl } = useI18n();
+  const { type, font } = useType();
   const moved = b.sold.startsAt !== show.startsAt || b.sold.format !== show.format;
   return (
-    <View style={[styles.found, { borderColor: theme.line }]}>
-      <View style={styles.titleRow}>
-        <Text style={[styles.movie, { color: theme.ink }]}>{show.movie.title}</Text>
-        {show.cancelled ? <Badge label={t.op.cancelled} tone="alert" /> : null}
+    <View role="status" style={{ backgroundColor: colors.verifyBg, borderWidth: 1, borderColor: colors.verifyLine, borderRadius: 11, padding: 13, gap: 4, marginTop: 16, maxWidth: 560 }}>
+      <Text style={[type.eyebrow, { marginBottom: 2 }]}>{t.operatorUi.foundKicker}</Text>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
+        <Text style={[font(800), { color: colors.fieldInk, fontSize: 15 }]}>{show.movie.title}</Text>
+        {show.cancelled ? <AlertPill label={t.op.cancelled} /> : null}
       </View>
-      <Text style={{ color: theme.muted, marginBottom: 4 }}>
+      <Text style={[type.caption, { color: colors.verifyInk }]}>
         {joinLine(rtl, dayLabel(show.startsAt.slice(0, 10), t), show.localTime, t.op.formatName(show.format))}
       </Text>
-      {moved ? <Text style={{ color: theme.accent, fontSize: 12, marginBottom: 4 }}>{t.op.soldAs(b.sold.startsAt.slice(11, 16), t.op.formatName(b.sold.format))}</Text> : null}
-      <BookingRow booking={b} last />
-      <Text style={{ color: theme.muted, fontSize: 12 }}>{t.op.paidBy(t.op.payment[b.paymentMethod] ?? b.paymentMethod)}</Text>
-      <View style={styles.foundActions}>
-        {show.editable ? <Button title={t.op.viewShow} kind="secondary" onPress={() => openShow(show.id)} style={styles.small} /> : null}
-        <Button title={t.op.clear} kind="secondary" onPress={onClear} style={styles.small} />
+      {moved ? <Text style={[font(700), { color: colors.dangerOnCream, fontSize: 12 }]}>{t.op.soldAs(b.sold.startsAt.slice(11, 16), t.op.formatName(b.sold.format))}</Text> : null}
+      <View style={{ borderTopWidth: 1, borderTopColor: colors.verifyLine, paddingTop: 8, marginTop: 4 }}>
+        <BookingRow booking={b} tone="cream" />
+        <Text style={[type.caption, { color: colors.creamMuted }]}>{t.op.paidBy(t.op.payment[b.paymentMethod] ?? b.paymentMethod)}</Text>
+      </View>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 6 }}>
+        {show.editable ? <Button title={t.op.viewShow} kind="soft" size="small" inline onPress={() => openShow(show.id)} /> : null}
+        <Button title={t.op.clear} kind="soft" size="small" inline onPress={onClear} />
       </View>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  columns: { flexDirection: 'row', gap: 24, alignItems: 'flex-start' },
-  side: { width: 320 },
-  cinema: { fontSize: 20, fontWeight: '800', marginTop: 6 },
-  label: { fontSize: 13, fontWeight: '700', marginBottom: 8 },
-  h1: { fontSize: 24, fontWeight: '800', marginBottom: 12 },
-  h2: { fontSize: 16, fontWeight: '800', marginBottom: 10 },
-  stats: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 8 },
-  small: { minHeight: 38, paddingHorizontal: 14, alignSelf: 'flex-start' },
-  showHead: { flexDirection: 'row', gap: 14, alignItems: 'flex-start' },
-  time: { fontSize: 22, fontWeight: '800', minWidth: 62 },
-  struck: { textDecorationLine: 'line-through' },
-  titleRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
-  movie: { fontSize: 17, fontWeight: '800' },
-  showFoot: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 10, paddingTop: 10, borderTopWidth: StyleSheet.hairlineWidth },
-  searchRow: { flexDirection: 'row', gap: 8, alignItems: 'flex-start' },
-  findButton: { marginTop: 25, minHeight: 46 },
-  found: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 12, marginTop: 2 },
-  foundActions: { flexDirection: 'row', gap: 8, marginTop: 10 },
-});
