@@ -1,120 +1,68 @@
-import { router } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Platform, Text, View } from 'react-native';
 import { useAuth } from '../../auth';
-import { signInHref, signUpHref } from '../../auth/routes';
-import { Button, Panel } from '../../components/ui';
+import { AccountPanel, DetailRow, LinkList, PanelTitle, TicketsCard } from '../../components/account/parts';
+import { SignInPanel } from '../../components/account/SignInPanel';
+import { Chips } from '../../components/Chips';
+import { Page } from '../../components/page';
+import { Button, Eyebrow, Spinner } from '../../components/ui';
 import { useI18n } from '../../i18n';
 import type { Lang } from '../../i18n/strings';
-import { useTheme } from '../../theme';
+import { useType } from '../../typography';
 
 const languages: { value: Lang; label: string }[] = [
   { value: 'ar', label: 'العربية' },
   { value: 'en', label: 'English' },
 ];
 
-/** Profile tab: the signed-in account (BRD 5.1, 7.3), or an invitation to sign in; language; help links. */
+/**
+ * Profile tab, laid out like the live account.html: centred 480px panels. Signed out it is the live sign-in panel;
+ * signed in, the account (BRD 5.1, 7.3). Then the live "Your tickets" card, the language and help links.
+ */
 export default function Account() {
-  const theme = useTheme();
   const { t, lang, setLang } = useI18n();
+  const { type } = useType();
   return (
-    <ScrollView style={{ backgroundColor: theme.bg }} contentContainerStyle={styles.wrap}>
-      <Text style={[styles.title, { color: theme.ink }]}>{t.profileTitle}</Text>
-      <AccountPanel />
+    <Page footer="account" contentStyle={{ paddingTop: 44, gap: 15 }}>
+      <AccountSection />
+      <TicketsCard style={{ width: '100%', maxWidth: 480, alignSelf: 'center' }} />
 
-      <Text style={[styles.h2, { color: theme.ink }]}>{t.language}</Text>
-      <View style={styles.row}>
-        {languages.map((l) => {
-          const on = l.value === lang;
-          return (
-            <Pressable key={l.value} onPress={() => setLang(l.value)} accessibilityRole="radio" aria-checked={on}
-              style={[styles.option, { borderColor: on ? theme.accent : theme.line, backgroundColor: theme.panel }]}>
-              <Text style={{ color: theme.ink, fontWeight: on ? '800' : '500' }}>{l.label}</Text>
-            </Pressable>
-          );
-        })}
-      </View>
-      {Platform.OS !== 'web' && <Text style={{ color: theme.muted, fontSize: 12, marginTop: 8 }}>{t.restartNote}</Text>}
+      <AccountPanel>
+        <Eyebrow style={{ marginBottom: 10 }}>{t.language}</Eyebrow>
+        <Chips variant="pay" options={languages} value={lang} onChange={setLang} label={t.language} />
+        {Platform.OS !== 'web' && <Text style={[type.micro, { marginTop: 10 }]}>{t.restartNote}</Text>}
+      </AccountPanel>
 
-      <View style={[styles.links, { borderColor: theme.line }]}>
-        {[
-          { label: t.supportTitle, href: '/support' as const },
-          { label: t.operatorTitle, href: '/operator' as const },
-        ].map((link) => (
-          <Pressable key={link.href} onPress={() => router.push(link.href)} accessibilityRole="link"
-            style={[styles.link, { borderColor: theme.line }]}>
-            <Text style={{ color: theme.ink, fontSize: 16, fontWeight: '600' }}>{link.label}</Text>
-          </Pressable>
-        ))}
-      </View>
-    </ScrollView>
+      <LinkList label={t.accountUi.linksLabel} style={{ width: '100%', maxWidth: 480, alignSelf: 'center' }} links={[
+        { label: t.supportTitle, href: '/support' },
+        { label: t.shell.cinemaPortal, href: '/operator' },
+      ]} />
+    </Page>
   );
 }
 
-function AccountPanel() {
-  const theme = useTheme();
+/** The sign-in panel for a guest, or the signed-in account with its details and Sign out. */
+function AccountSection() {
   const { t } = useI18n();
   const { account, ready, signOut } = useAuth();
   const [busy, setBusy] = useState(false);
 
-  if (!ready) return <Panel><ActivityIndicator color={theme.accent} /></Panel>;
-
-  if (!account) {
-    return (
-      <Panel>
-        <Text style={[styles.panelTitle, { color: theme.ink }]}>{t.accountInviteTitle}</Text>
-        <Text style={[styles.body, { color: theme.muted, marginBottom: 16 }]}>{t.accountInviteBody}</Text>
-        <Button title={t.signIn} onPress={() => router.push(signInHref())} />
-        <Button title={t.createAccount} kind="secondary" onPress={() => router.push(signUpHref())} style={{ marginTop: 10 }} />
-        <Text style={{ color: theme.muted, fontSize: 12, marginTop: 12, textAlign: 'center' }}>{t.profileBody}</Text>
-      </Panel>
-    );
-  }
+  if (!ready) return <AccountPanel padding={28}><Spinner /></AccountPanel>;
+  if (!account) return <SignInPanel />;
 
   return (
-    <Panel>
-      <View style={styles.who}>
-        <View style={[styles.avatar, { backgroundColor: theme.accent }]}>
-          <Text style={{ color: theme.accentInk, fontSize: 20, fontWeight: '800' }}>{account.name.trim().charAt(0).toUpperCase()}</Text>
-        </View>
-        <Text style={[styles.panelTitle, { color: theme.ink, flex: 1, marginBottom: 0 }]} numberOfLines={2}>{account.name}</Text>
-      </View>
-      <Detail label={t.email} value={account.email} />
-      <Detail label={t.mobile} value={account.mobile} />
-      <Button title={t.signOut} kind="secondary" busy={busy} style={{ marginTop: 14 }}
+    <AccountPanel padding={28} testID="profile-account">
+      <Eyebrow>{t.accountUi.profileKicker}</Eyebrow>
+      <PanelTitle numberOfLines={2}>{account.name}</PanelTitle>
+      <View style={{ height: 14 }} />
+      <DetailRow label={t.email} value={account.email} />
+      <DetailRow label={t.mobile} value={account.mobile} />
+      <Button title={t.signOut} kind="soft" busy={busy} style={{ marginTop: 22 }}
         onPress={async () => {
           setBusy(true);
           await signOut();
           setBusy(false);
         }} />
-    </Panel>
+    </AccountPanel>
   );
 }
-
-/** Label above value, so a long email never squeezes the label. Email and mobile always read left to right. */
-function Detail({ label, value }: { label: string; value: string }) {
-  const theme = useTheme();
-  const { rtl } = useI18n();
-  return (
-    <View style={[styles.detail, { borderColor: theme.line }]}>
-      <Text style={{ color: theme.muted, fontSize: 13 }}>{label}</Text>
-      <Text selectable style={[styles.detailValue, { color: theme.ink, textAlign: rtl ? 'right' : 'left' }]}>{value}</Text>
-    </View>
-  );
-}
-
-const styles = StyleSheet.create({
-  wrap: { padding: 24, paddingBottom: 40 },
-  title: { fontSize: 22, fontWeight: '800', marginBottom: 14 },
-  panelTitle: { fontSize: 19, fontWeight: '800', marginBottom: 6 },
-  body: { fontSize: 15, lineHeight: 22 },
-  who: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 },
-  avatar: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
-  detail: { paddingVertical: 10, borderTopWidth: StyleSheet.hairlineWidth },
-  detailValue: { fontSize: 16, fontWeight: '600', marginTop: 2, writingDirection: 'ltr' },
-  h2: { fontSize: 18, fontWeight: '800', marginTop: 28, marginBottom: 10 },
-  row: { flexDirection: 'row', gap: 8 },
-  option: { flex: 1, borderWidth: 1.5, borderRadius: 12, padding: 14, alignItems: 'center' },
-  links: { marginTop: 28, borderTopWidth: StyleSheet.hairlineWidth },
-  link: { paddingVertical: 16, borderBottomWidth: StyleSheet.hairlineWidth },
-});

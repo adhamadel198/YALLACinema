@@ -1,23 +1,28 @@
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { supportApi } from '../api/support';
 import { useRequest } from '../api/useRequest';
-import { Button, Panel } from '../components/ui';
+import { CardGrid } from '../components/account/parts';
+import { Page, PageIntro } from '../components/page';
+import { goTo } from '../components/shell/nav';
+import { Badge, Button, Eyebrow, H2, Notice, Panel, SmallCard, Spinner } from '../components/ui';
 import { useI18n } from '../i18n';
-import { useTheme } from '../theme';
+import { colors } from '../theme';
+import { useType } from '../typography';
 
 /** Booking references look like YL-K7Q2M9 (apps/api/src/routes/booking.ts). Anything else in the URL is ignored. */
 const REFERENCE = /^YL-[A-Z0-9]{6}$/;
 
 /**
- * Help and support (BRD 7.6): how to get help, FAQs, and each cinema's cancellation policy (BRD 9).
+ * Help and support (BRD 7.6): how to get help, FAQs, and each cinema's cancellation policy (BRD 9), laid out like the
+ * live support.html (intro, three small cards, one panel per question).
  * The ticket screen opens it with `ref` (booking reference) and `cinema` (cinema id) so the customer
  * has their reference to hand and sees their cinema's policy first.
  */
 export default function Support() {
-  const theme = useTheme();
-  const { t, lang, rtl } = useI18n();
+  const { t, lang } = useI18n();
+  const { type, font } = useType();
   const params = useLocalSearchParams<{ ref?: string; cinema?: string }>();
   const reference = typeof params.ref === 'string' && REFERENCE.test(params.ref) ? params.ref : undefined;
   const policies = useRequest(supportApi.cinemaPolicies, [lang]);
@@ -32,98 +37,103 @@ export default function Support() {
 
   const isMine = (cinemaId: string) => cinemaId === params.cinema;
   const cinemas = [...(policies.data ?? [])].sort((a, b) => Number(isMine(b.id)) - Number(isMine(a.id)));
-  const noTracking = rtl && styles.noTracking;
+  const cards = t.accountUi.supportCards;
 
   return (
-    <>
+    <Page footer="support">
       <Stack.Screen options={{ title: t.supportTitle }} />
-      <ScrollView style={{ backgroundColor: theme.bg }} contentContainerStyle={styles.page}>
-        <Text style={[styles.kicker, { color: theme.accent }, noTracking]}>{t.supportKicker}</Text>
-        <Text style={[styles.h1, { color: theme.ink }, noTracking]}>{t.supportHeading}</Text>
-        <Text style={[styles.body, { color: theme.muted, marginTop: 6 }]}>{t.supportLead}</Text>
+      <PageIntro eyebrow={t.supportKicker} title={t.supportHeading} lead={t.supportLead} />
 
-        <Panel style={{ marginTop: 20 }}>
-          <Text style={[styles.h3, { color: theme.ink }]}>{t.supportContactTitle}</Text>
-          <Text style={[styles.body, { color: theme.muted, marginTop: 6 }]}>{t.supportContactBody}</Text>
-          {reference && (
-            <View style={[styles.reference, { backgroundColor: theme.bg, borderColor: theme.line }]}>
-              <Text style={{ color: theme.muted, flex: 1 }}>{t.supportYourReference}</Text>
-              <Text selectable style={{ color: theme.ink, fontWeight: '800', fontSize: 16 }}>{reference}</Text>
-            </View>
-          )}
+      <CardGrid>
+        <SmallCard style={styles.fill} eyebrow={cards.booking.kicker} title={cards.booking.title} body={cards.booking.body}>
+          {reference ? (
+            <Notice tone="verify" style={styles.full}>
+              <Text style={[font(800), { color: colors.verifyInk, fontSize: 12, lineHeight: 18 }]}>{t.supportYourReference}</Text>
+              <Text selectable style={[font(800), styles.reference]}>{reference}</Text>
+            </Notice>
+          ) : null}
           {/* CONTACT CHANNELS GO HERE. Support channels (phone, email, chat) and support hours are still an
               open decision (BRD 7.6; section 15, decision 4). Once agreed, list them in this box with their
-              copy in i18n/features/support.ts. Never put a made-up number or address here. */}
-          <View style={[styles.channels, { borderColor: theme.line }]} testID="support-channels">
-            <Text style={[styles.label, { color: theme.muted }, noTracking]}>{t.supportChannelsLabel}</Text>
-            <Text style={{ color: theme.ink, marginTop: 4, lineHeight: 20 }}>{t.supportChannelsSoon}</Text>
+              copy in i18n/features/support.ts, and add the live "Email support" button. Never put a made-up
+              number or address here. */}
+          <View testID="support-channels" style={styles.full}>
+            <Notice>
+              <Text style={[type.eyebrow, { color: colors.noticeInk }]}>{t.supportChannelsLabel}</Text>
+              <Text style={[type.small, { color: colors.noticeInk, marginTop: 2 }]}>{t.supportChannelsSoon}</Text>
+            </Notice>
           </View>
-        </Panel>
+        </SmallCard>
+        <SmallCard style={styles.fill} eyebrow={cards.prices.kicker} title={cards.prices.title} body={cards.prices.body}>
+          <Button kind="soft" size="small" inline title={cards.prices.button} onPress={() => goTo('/')} />
+        </SmallCard>
+        <SmallCard style={styles.fill} eyebrow={cards.partners.kicker} title={cards.partners.title} body={cards.partners.body}>
+          <Button kind="soft" size="small" inline title={cards.partners.button} onPress={() => goTo('/operator')} />
+        </SmallCard>
+      </CardGrid>
 
-        <Text style={[styles.kicker, { color: theme.accent, marginTop: 32 }, noTracking]}>{t.supportFaqKicker}</Text>
-        <Text style={[styles.h2, { color: theme.ink }]}>{t.supportFaqTitle}</Text>
-        {Object.entries(t.supportFaq).map(([sectionId, section]) => (
-          <View key={sectionId} style={{ marginTop: 18 }}>
-            <Text style={[styles.h3, { color: theme.ink, marginBottom: 8 }]}>{section.title}</Text>
-            <View style={[styles.faqGroup, { borderColor: theme.line, backgroundColor: theme.panel }]}>
-              {Object.entries(section.items).map(([itemId, item], i) => {
-                const id = `${sectionId}.${itemId}`;
-                const expanded = open.has(id);
-                return (
-                  <View key={id} style={i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderColor: theme.line }}>
-                    <Pressable onPress={() => toggle(id)} accessibilityRole="button" aria-expanded={expanded} style={styles.question}>
-                      <Text style={{ color: theme.ink, fontWeight: '700', fontSize: 15, flex: 1, lineHeight: 21 }}>{item.q}</Text>
-                      <View style={[styles.sign, { borderColor: expanded ? theme.accent : theme.line }]}>
-                        <Text style={{ color: expanded ? theme.accent : theme.muted, fontWeight: '800', fontSize: 16, lineHeight: 18 }}>
-                          {expanded ? '−' : '+'}
-                        </Text>
-                      </View>
-                    </Pressable>
-                    {expanded && <Text style={[styles.body, styles.answer, { color: theme.muted }]}>{item.a}</Text>}
-                  </View>
-                );
-              })}
-            </View>
+      <View style={styles.section}>
+        <Eyebrow>{t.supportFaqKicker}</Eyebrow>
+        <H2 style={{ marginBottom: 0 }}>{t.supportFaqTitle}</H2>
+        {Object.entries(t.supportFaq).map(([sectionId, section], s) => (
+          <View key={sectionId} style={{ marginTop: s ? 22 : 12 }}>
+            <Eyebrow style={{ marginBottom: 2 }}>{section.title}</Eyebrow>
+            {Object.entries(section.items).map(([itemId, item]) => {
+              const id = `${sectionId}.${itemId}`;
+              return <FaqItem key={id} question={item.q} answer={item.a} expanded={open.has(id)} onToggle={() => toggle(id)} />;
+            })}
           </View>
         ))}
+      </View>
 
-        <Text style={[styles.h2, { color: theme.ink, marginTop: 32 }]}>{t.supportPoliciesTitle}</Text>
-        <Text style={[styles.body, { color: theme.muted, marginTop: 4, marginBottom: 12 }]}>{t.supportPoliciesBody}</Text>
+      <View style={styles.section}>
+        <Eyebrow>{t.accountUi.supportPoliciesKicker}</Eyebrow>
+        <H2 style={{ marginBottom: 8 }}>{t.supportPoliciesTitle}</H2>
+        <Text style={[type.body, { color: colors.muted, marginBottom: 16, maxWidth: 650 }]}>{t.supportPoliciesBody}</Text>
         {policies.error ? (
           <Panel>
-            <Text style={{ color: theme.ink, marginBottom: 12 }}>{t.loadFailed}</Text>
-            <Button title={t.tryAgain} kind="secondary" onPress={policies.reload} />
+            <Notice role="alert" style={{ marginBottom: 12 }}>{t.loadFailed}</Notice>
+            <Button kind="soft" size="small" inline title={t.tryAgain} onPress={policies.reload} />
           </Panel>
         ) : !policies.data ? (
-          <ActivityIndicator color={theme.accent} style={{ marginVertical: 16 }} />
+          <Spinner />
         ) : (
-          cinemas.map((c) => (
-            <Panel key={c.id} style={{ marginBottom: 12, ...(isMine(c.id) && { borderColor: theme.accent, borderWidth: 1.5 }) }}>
-              {isMine(c.id) && <Text style={[styles.label, { color: theme.accent, marginBottom: 4 }, noTracking]}>{t.supportYourCinema}</Text>}
-              <Text style={{ color: theme.ink, fontWeight: '800', fontSize: 16 }}>{c.name}</Text>
-              <Text style={{ color: theme.muted, fontSize: 13, marginTop: 2 }}>{t.areas[c.area] ?? c.area}</Text>
-              <Text style={[styles.body, { color: theme.ink, marginTop: 8 }]}>{c.cancellationPolicy}</Text>
-            </Panel>
-          ))
+          <CardGrid>
+            {cinemas.map((c) => (
+              <Panel key={c.id} padding={19} style={[styles.fill, isMine(c.id) && { borderColor: colors.gold }]}>
+                {isMine(c.id) ? <Badge label={t.supportYourCinema} style={{ marginBottom: 10 }} /> : null}
+                <Eyebrow>{t.areas[c.area] ?? c.area}</Eyebrow>
+                <Text role="heading" aria-level={3} style={[type.h3, { marginTop: 6, marginBottom: 6 }]}>{c.name}</Text>
+                <Text style={type.small}>{c.cancellationPolicy}</Text>
+              </Panel>
+            ))}
+          </CardGrid>
         )}
-      </ScrollView>
-    </>
+      </View>
+    </Page>
+  );
+}
+
+/** One question in its own panel (live `details.panel.faq`): a disclosure triangle and the question; the answer under it. */
+function FaqItem({ question, answer, expanded, onToggle }: { question: string; answer: string; expanded: boolean; onToggle: () => void }) {
+  const { type, font, rtl } = useType();
+  return (
+    <Panel padding={0} style={styles.faq}>
+      <Pressable onPress={onToggle} accessibilityRole="button" aria-expanded={expanded} style={styles.question}>
+        <Text aria-hidden style={[styles.marker, { color: colors.ink, fontSize: expanded ? 10 : 12 }]}>{expanded ? '▼\uFE0E' : rtl ? '◀\uFE0E' : '▶\uFE0E'}</Text>
+        <Text style={[font(800), { color: colors.ink, fontSize: 15, lineHeight: 23, flex: 1 }]}>{question}</Text>
+      </Pressable>
+      {expanded ? <Text style={[type.small, styles.answer, { color: colors.muted }]}>{answer}</Text> : null}
+    </Panel>
   );
 }
 
 const styles = StyleSheet.create({
-  page: { padding: 16, paddingBottom: 48, width: '100%', maxWidth: 720, alignSelf: 'center' },
-  kicker: { fontSize: 11, fontWeight: '800', letterSpacing: 1.8 },
-  noTracking: { letterSpacing: 0 }, // Arabic is cursive; letter spacing breaks the joins.
-  h1: { fontSize: 28, fontWeight: '800', letterSpacing: -0.8, marginTop: 4 },
-  h2: { fontSize: 22, fontWeight: '800', marginTop: 4 },
-  h3: { fontSize: 17, fontWeight: '800' },
-  body: { fontSize: 15, lineHeight: 22 },
-  label: { fontSize: 11, fontWeight: '800', letterSpacing: 1.2 },
-  reference: { flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, marginTop: 14 },
-  channels: { borderWidth: 1.5, borderStyle: 'dashed', borderRadius: 12, padding: 14, marginTop: 14 },
-  faqGroup: { borderWidth: 1, borderRadius: 16, overflow: 'hidden' },
-  question: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 14, minHeight: 52 },
-  sign: { width: 26, height: 26, borderRadius: 13, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
-  answer: { paddingHorizontal: 16, paddingBottom: 16, marginTop: -4 },
+  full: { width: '100%' },
+  fill: { flexGrow: 1 },
+  reference: { color: colors.verifyInk, fontSize: 16, lineHeight: 22, writingDirection: 'ltr', alignSelf: 'flex-start', marginTop: 2 },
+  section: { paddingTop: 40 },
+  faq: { marginTop: 9 },
+  question: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, paddingVertical: 17, paddingHorizontal: 19 },
+  marker: { lineHeight: 23, width: 10 },
+  answer: { paddingHorizontal: 19, paddingBottom: 17, marginTop: -4 },
 });
