@@ -1,4 +1,4 @@
-import Fastify from 'fastify';
+import Fastify, { type FastifyServerOptions } from 'fastify';
 import cors from '@fastify/cors';
 import rateLimit from '@fastify/rate-limit';
 import { createDb, type Db } from './db/index.ts';
@@ -15,7 +15,7 @@ import { authFor } from './auth.ts';
 import { sandboxCinema, type CinemaIntegration } from './integrations/cinema.ts';
 import { sandboxPayments, type PaymentProvider } from './integrations/payments.ts';
 
-type Options = { db?: Db; clock?: () => number; payments?: PaymentProvider; cinema?: CinemaIntegration; logger?: boolean; trustProxy?: boolean };
+type Options = { db?: Db; clock?: () => number; payments?: PaymentProvider; cinema?: CinemaIntegration; logger?: FastifyServerOptions['logger']; trustProxy?: boolean };
 
 /** Without a `db`, uses a fresh in-memory database (tests). server.ts passes the configured one. */
 export async function buildApp({

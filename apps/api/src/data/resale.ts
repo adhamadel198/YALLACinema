@@ -210,13 +210,14 @@ export class Resale {
   }
 
   /**
-   * The cinema couldn't transfer the tickets after the buyer paid (BRD 11): the sale is cancelled (the caller
-   * refunds the buyer) and the seller's tickets come off sale and stay valid.
+   * The cinema couldn't transfer the tickets after the buyer paid (BRD 11): the sale is cancelled and the seller's
+   * tickets come off sale and stay valid. The caller refunds the buyer first; if that failed (`refunded` false)
+   * the sale is 'refund-failed', so support can find it and refund the payment by hand.
    */
-  async transferFailed(saleId: string, paymentRef: string, reason: string) {
+  async transferFailed(saleId: string, paymentRef: string, reason: string, refunded: boolean) {
     await this.db.transaction(async (tx) => {
-      await tx.query(`UPDATE resale_sales SET status = 'refunded', payment_ref = $2, failure = $3, updated_at = $4 WHERE id = $1 AND status = 'reserved'`,
-        [saleId, paymentRef, reason, this.now()]);
+      await tx.query(`UPDATE resale_sales SET status = $5, payment_ref = $2, failure = $3, updated_at = $4 WHERE id = $1 AND status = 'reserved'`,
+        [saleId, paymentRef, reason, this.now(), refunded ? 'refunded' : 'refund-failed']);
       const { rows } = await tx.query<{ listing_id: string; ticket_id: string }>(
         `UPDATE resale_listing_tickets SET state = 'returned' WHERE sale_id = $1 AND state = 'reserved' RETURNING listing_id, ticket_id`, [saleId]);
       if (!rows.length) return;

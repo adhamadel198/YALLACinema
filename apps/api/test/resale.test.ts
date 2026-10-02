@@ -55,7 +55,13 @@ function recordingPayments() {
   return { payments, charges, refunds, start };
 }
 
-async function setup(options: { cinema?: CinemaIntegration; payments?: PaymentProvider; db?: Db } = {}) {
+/** What the API logs at error level, to check support is alerted. */
+function errorLog() {
+  const errors: { msg: string; [key: string]: unknown }[] = [];
+  return { errors, logger: { level: 'error', stream: { write: (line: string) => { errors.push(JSON.parse(line)); } } } };
+}
+
+async function setup(options: { cinema?: CinemaIntegration; payments?: PaymentProvider; db?: Db; logger?: ReturnType<typeof errorLog>['logger'] } = {}) {
   let now = MORNING;
   const app = await buildApp({ clock: () => now, ...options });
   let clients = 0;
@@ -432,6 +438,27 @@ test('if the cinema cannot transfer the ticket, the buyer is refunded and the se
   assert.equal(closed.pendingPayout, 0);
   assert.equal(closed.tickets[0].state, 'returned');
   assert.deepEqual(await s.market(), []);
+});
+
+test('a refund that fails is recorded for support, not as a refund, and the buyer is told', async () => {
+  const db = await createDb(undefined, 'memory://');
+  const log = errorLog();
+  const pay = recordingPayments();
+  const payments: PaymentProvider = { charge: pay.payments.charge, async refund() { throw new Error('Payment provider timeout'); } };
+  const s = await setup({ db, payments, logger: log.logger, cinema: cinemaWith({ async transfer() { return { ok: false, reason: 'Cinema system offline' }; } }) });
+  pay.start(async () => ({ ok: true, paymentRef: 'pay-1' }));
+  const [first] = s.tickets.tickets;
+  const listing = (await s.list(s.seller.headers, s.tickets.id, [first.id], 100)).json();
+
+  const res = await s.buy(s.buyer.headers, listing.id, [first.id]);
+  assert.equal(res.statusCode, 502);
+  assert.equal(res.json().code, 'refund-failed');
+  const { rows: [sale] } = await db.query<{ status: string; payment_ref: string; reference: string }>('SELECT status, payment_ref, reference FROM resale_sales');
+  assert.deepEqual({ ...sale }, { status: 'refund-failed', payment_ref: 'pay-1', reference: res.json().reference });
+  assert.ok(log.errors.some((e) => e.paymentRef === 'pay-1' && /refund/i.test(e.msg)));
+  // The cinema transferred nothing, so the seller's ticket still works.
+  assert.equal((await s.statuses(s.tickets.id))[first.seat], 'valid');
+  assert.equal((await s.mine(s.seller.headers))[0].tickets[0].state, 'returned');
 });
 
 test('a failed payment puts the tickets back on sale', async () => {

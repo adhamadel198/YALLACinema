@@ -277,11 +277,25 @@ export async function resaleRoutes(app: FastifyInstance, { store, auth, payments
     const sellerBooking = (await store.booking(listing.bookingId))!;
     const originals = ticketIds.map((id) => sellerBooking.tickets.find((t) => t.id === id)!);
     const replacements = originals.map((t) => ({ original: t, id: randomUUID(), qr: `YALLA:${reference}:${t.seat}` }));
-    const refund = async (reason: string) => {
+    /** Refunds the buyer. False when the payment provider fails: support is alerted to refund them by hand. */
+    const refundBuyer = async () => {
       try {
         await payments.refund(charge.paymentRef);
-      } finally {
-        await resale.transferFailed(reserved.saleId, charge.paymentRef, reason);
+        return true;
+      } catch (e) {
+        req.log.error({ err: e, saleId: reserved.saleId, reference, paymentRef: charge.paymentRef, amount: price.total },
+          'Resale: refunding the buyer failed. Refund this payment by hand.');
+        return false;
+      }
+    };
+    const refund = async (reason: string) => {
+      const refunded = await refundBuyer();
+      await resale.transferFailed(reserved.saleId, charge.paymentRef, reason, refunded);
+      if (!refunded) {
+        return reply.code(502).send({
+          error: 'This purchase couldn’t be completed and your refund didn’t go through automatically. Our support team has been alerted and will refund you.',
+          code: 'refund-failed', reference,
+        });
       }
       return reply.code(409).send({ error: 'The cinema could not transfer these tickets. You have been refunded.', code: 'transfer-failed' });
     };
