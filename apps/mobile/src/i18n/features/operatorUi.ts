@@ -1,0 +1,53 @@
+// Copy for the restyled cinema portal screens: staff sign-in, dashboard and correct listing.
+// Merged into strings.ts as `t.operatorUi` (a namespace, so keys never clash with other features).
+// Every English key needs an Egyptian Arabic key: `ar: typeof en` enforces it.
+
+export const en = {
+  kicker: 'Cinema portal',
+  workspace: 'Cinema workspace',
+  signedInAs: (name: string) => `Signed in as ${name}`,
+  glance: 'Your listings and bookings at a glance.',
+  days: 'Days',
+  help: 'Help & support',
+  listingsToday: 'Today’s listings',
+  listingsOn: (day: string) => `Listings · ${day}`,
+  bookingsSection: 'Bookings',
+  published: 'Published',
+  colMovie: 'Movie',
+  colShowtime: 'Showtime',
+  colFormat: 'Format',
+  colPrice: 'Price',
+  colSeatsLeft: 'Seats left',
+  colBooked: 'Booked',
+  colStatus: 'Listing status',
+  colShow: 'Show',
+  colAction: 'Action',
+  foundKicker: 'Booking found',
+  demoPassword: 'Password:',
+  crumbPortal: 'Cinema portal',
+};
+
+export const ar: typeof en = {
+  kicker: 'بوابة السينما',
+  workspace: 'مساحة السينما',
+  signedInAs: (name) => `داخل باسم ${name}`,
+  glance: 'عروضك وحجوزاتك في لمحة.',
+  days: 'الأيام',
+  help: 'المساعدة والدعم',
+  listingsToday: 'عروض النهارده',
+  listingsOn: (day) => `العروض · ${day}`,
+  bookingsSection: 'الحجوزات',
+  published: 'منشور',
+  colMovie: 'الفيلم',
+  colShowtime: 'المعاد',
+  colFormat: 'النوع',
+  colPrice: 'السعر',
+  colSeatsLeft: 'الكراسي الفاضية',
+  colBooked: 'المحجوز',
+  colStatus: 'حالة العرض',
+  colShow: 'العرض',
+  colAction: 'إجراء',
+  foundKicker: 'لقينا الحجز',
+  demoPassword: 'كلمة السر:',
+  crumbPortal: 'بوابة السينما',
+};

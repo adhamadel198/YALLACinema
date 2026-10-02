@@ -1,0 +1,250 @@
+// UI copy in English and Arabic. Arabic follows the Egyptian tone of the web prototype's i18n.js.
+// Movie and cinema listings are translated by the API (Accept-Language), not here.
+// Each feature keeps its own copy in features/*.ts; this file merges them.
+
+import * as accounts from './features/accounts';
+import * as location from './features/location';
+import * as operator from './features/operator';
+import * as resale from './features/resale';
+import * as seatChoice from './features/seatChoice';
+import * as support from './features/support';
+import * as shell from './features/shell';
+import * as home from './features/home';
+import * as booking from './features/booking';
+import * as accountUi from './features/accountUi';
+import * as resaleUi from './features/resaleUi';
+import * as operatorUi from './features/operatorUi';
+import * as checkoutUi from './features/checkoutUi';
+
+const en = {
+  tabMovies: 'Movies',
+  tabTickets: 'My Tickets',
+  tabProfile: 'Profile',
+  switchLanguage: 'عربي',
+  switchLanguageLabel: 'Switch to Arabic',
+  tryAgain: 'Try again',
+  goBack: 'Go back',
+  loadFailed: 'Couldn’t load this. Check your connection and try again.',
+  genericError: 'Something went wrong. Please try again.',
+
+  nowShowing: 'NOW SHOWING · CAIRO & GIZA',
+  heroTitle: 'Pick a movie, we’ll find the seats.',
+  runtime: (h: number, m: string) => `${h}h ${m}m`,
+  showtimesFrom: (n: number, price: string) => `${n} showtimes · from ${price}`,
+
+  howManySeats: 'How many seats do you need?',
+  fewerSeats: 'Fewer seats',
+  maxSeats: (n: number) => `Up to ${n} seats per booking.`,
+  moreSeats: 'More seats',
+  either: 'Either',
+  together: 'Together',
+  separated: 'Separated',
+  noShowtimes: (n: number) => `No showtimes can seat ${n} that way right now. Try a different number or arrangement.`,
+  togetherOptions: (n: number) => `${n} connected ${n === 1 ? 'option' : 'options'}`,
+  split: (pattern: string) => `separated ${pattern}`,
+  plusFee: (price: string) => `${price} + 5 fee`,
+
+  filters: 'Filters',
+  filtersActive: (n: number) => `Filters · ${n}`,
+  clearFilters: 'Clear filters',
+  area: 'Area',
+  cinema: 'Cinema',
+  time: 'Time',
+  sortBy: 'Sort by',
+  all: 'All',
+  anyTime: 'Any time',
+  beforeSix: 'Before 6 PM',
+  sixToNine: '6–9 PM',
+  afterNine: 'After 9 PM',
+  soonest: 'Soonest',
+  nearest: 'Nearest',
+  km: (n: number) => `${n} km`,
+  areas: { 'Downtown Cairo': 'Downtown Cairo', Maadi: 'Maadi', 'New Cairo': 'New Cairo', '6th of October': '6th of October' } as Record<string, string>,
+  tooManyHolds: 'Too many seat holds in a short time. Please wait a few minutes and try again.',
+
+  chooseSeats: 'Choose seats',
+  screen: 'SCREEN',
+  seatMap: 'Seat map',
+  seatLabel: (id: string, state: '' | 'taken' | 'selected') => `Seat ${id}${state === 'taken' ? ', unavailable' : state === 'selected' ? ', selected' : ''}`,
+  yourSeats: 'Your seats',
+  alsoMatches: 'Also matches',
+  free: 'Free',
+  taken: 'Taken',
+  matchingSeats: 'Matching seats',
+  best: 'Best',
+  ticketsLine: (n: number, price: string) => `Tickets ${n} × ${price}`,
+  platformFee: 'Platform fee · 5 EGP per ticket',
+  total: 'Total',
+  holdSeats: 'Hold these seats',
+  seatsJustTaken: 'Those seats were just taken. The map has been refreshed with what is still available.',
+
+  checkout: 'Checkout',
+  seats: 'Seats',
+  heldFor: (time: string) => `Seats held for ${time}`,
+  holdExpired: 'Your seat hold has expired. Please choose your seats again.',
+  yourDetails: 'Your details',
+  noAccountNeeded: 'No account needed. We’ll send your ticket to this email.',
+  fullName: 'Full name',
+  email: 'Email address',
+  mobile: 'Mobile number',
+  mobilePlaceholder: '+20 1XX XXX XXXX',
+  paymentMethod: 'Payment method',
+  card: '💳  Bank card',
+  wallet: '📱  Local wallet',
+  paymentSimulated: 'Payment is simulated in this build. Card and wallet details will be entered on the payment provider’s secure page.',
+  acceptPolicy: (cinema: string) => `I accept ${cinema}’s cancellation policy: `,
+  pay: (total: string) => `Pay ${total}`,
+  cancelHold: 'Cancel and release seats',
+  paymentFailed: 'Payment failed. Your seats were released.',
+  cinemaFailed: 'The cinema couldn’t confirm these seats. You have been refunded.',
+
+  yourTicket: 'Your ticket',
+  bookingConfirmed: '✓ Booking confirmed',
+  goingToMovies: 'You’re going to the movies.',
+  eTicket: 'YALLA · E-TICKET',
+  dateTime: 'Date & time',
+  reference: 'Booking reference',
+  totalPaid: 'Total paid',
+  seat: (id: string) => `Seat ${id}`,
+  showCodes: 'Show these codes at the cinema entrance.',
+  emailNote: (email: string) => `Sent to ${email} once email delivery is connected.`,
+  findAnother: 'Find another movie',
+
+  noTicketsTitle: 'No tickets yet',
+  noTicketsBody: 'Tickets you book on this device appear here.',
+  seatsList: (seats: string) => `Seats ${seats}`,
+
+  profileTitle: 'Profile',
+  profileBody: 'Sign-in is optional for booking and required for resale.',
+  language: 'Language',
+  restartNote: 'On iOS and Android, restart the app to finish switching direction everywhere.',
+
+  egp: (n: number) => `${n} EGP`,
+  weekdays: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+  months: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+};
+
+type BaseStrings = typeof en;
+
+const ar: BaseStrings = {
+  tabMovies: 'الأفلام',
+  tabTickets: 'تذاكري',
+  tabProfile: 'حسابي',
+  switchLanguage: 'English',
+  switchLanguageLabel: 'التحويل للإنجليزي',
+  tryAgain: 'حاول تاني',
+  goBack: 'ارجع',
+  loadFailed: 'مقدرناش نحمّل البيانات. اتأكد من الاتصال وحاول تاني.',
+  genericError: 'حصلت مشكلة. حاول تاني.',
+
+  nowShowing: 'يعرض الآن · القاهرة والجيزة',
+  heroTitle: 'اختار فيلم، وإحنا نلاقيلك الكراسي.',
+  runtime: (h, m) => `${h} س ${m} د`,
+  showtimesFrom: (n, price) => `${n === 1 ? 'عرض واحد' : n === 2 ? 'عرضين' : n <= 10 ? `${n} عروض` : `${n} عرض`} · من ${price}`,
+
+  howManySeats: 'محتاج كام كرسي؟',
+  fewerSeats: 'كراسي أقل',
+  maxSeats: (n) => `أقصى حد ${n} كراسي في الحجز الواحد.`,
+  moreSeats: 'كراسي أكتر',
+  either: 'أي ترتيب',
+  together: 'جنب بعض',
+  separated: 'متفرقين',
+  noShowtimes: (n) => `مفيش عروض فيها ${n} كراسي بالترتيب ده دلوقتي. جرّب عدد أو ترتيب تاني.`,
+  togetherOptions: (n) => `${n} ${n === 1 ? 'اختيار' : 'اختيارات'} جنب بعض`,
+  // The left-to-right mark keeps "3+1" in that order after an Arabic word.
+  split: (pattern) => `متفرقين \u200E${pattern}`,
+  plusFee: (price) => `${price} + 5 رسوم`,
+
+  filters: 'فلترة',
+  filtersActive: (n) => `فلترة · ${n}`,
+  clearFilters: 'امسح الفلاتر',
+  area: 'المنطقة',
+  cinema: 'السينما',
+  time: 'المعاد',
+  sortBy: 'رتّب حسب',
+  all: 'الكل',
+  anyTime: 'أي وقت',
+  beforeSix: 'قبل 6 م',
+  sixToNine: '6–9 م',
+  afterNine: 'بعد 9 م',
+  soonest: 'الأقرب معادًا',
+  nearest: 'الأقرب مسافة',
+  km: (n) => `${n} كم`,
+  areas: { 'Downtown Cairo': 'وسط البلد', Maadi: 'المعادي', 'New Cairo': 'القاهرة الجديدة', '6th of October': '6 أكتوبر' },
+  tooManyHolds: 'حجزت كراسي كتير في وقت قصير. استنى كام دقيقة وحاول تاني.',
+
+  chooseSeats: 'اختار الكراسي',
+  screen: 'الشاشة',
+  seatMap: 'خريطة الكراسي',
+  seatLabel: (id, state) => `كرسي ${id}${state === 'taken' ? '، محجوز' : state === 'selected' ? '، مختار' : ''}`,
+  yourSeats: 'كراسيك',
+  alsoMatches: 'مناسب برضه',
+  free: 'فاضي',
+  taken: 'محجوز',
+  matchingSeats: 'الكراسي المناسبة',
+  best: 'الأفضل',
+  ticketsLine: (n, price) => `التذاكر ${n} × ${price}`,
+  platformFee: 'رسوم المنصة · 5 جنيه لكل تذكرة',
+  total: 'الإجمالي',
+  holdSeats: 'احجز الكراسي دي',
+  seatsJustTaken: 'الكراسي دي لسه متحجزة. حدّثنا الخريطة باللي لسه متاح.',
+
+  checkout: 'الدفع',
+  seats: 'الكراسي',
+  heldFor: (time) => `الكراسي محجوزة لك لمدة ${time}`,
+  holdExpired: 'مدة حجز الكراسي خلصت. اختار كراسيك تاني.',
+  yourDetails: 'بياناتك',
+  noAccountNeeded: 'مش محتاج حساب. هنبعتلك التذكرة على الإيميل ده.',
+  fullName: 'الاسم بالكامل',
+  email: 'البريد الإلكتروني',
+  mobile: 'رقم الموبايل',
+  mobilePlaceholder: '+20 1XX XXX XXXX',
+  paymentMethod: 'طريقة الدفع',
+  card: '💳  بطاقة بنكية',
+  wallet: '📱  محفظة إلكترونية',
+  paymentSimulated: 'الدفع في النسخة دي تجريبي. بيانات الكارت أو المحفظة هتتكتب في صفحة شركة الدفع الآمنة.',
+  acceptPolicy: (cinema) => `موافق على سياسة الإلغاء الخاصة بـ ${cinema}: `,
+  pay: (total) => `ادفع ${total}`,
+  cancelHold: 'إلغاء وفك حجز الكراسي',
+  paymentFailed: 'الدفع مانجحش. فكّينا حجز الكراسي.',
+  cinemaFailed: 'السينما مقدرتش تأكد الكراسي دي. فلوسك هترجعلك.',
+
+  yourTicket: 'تذكرتك',
+  bookingConfirmed: '✓ تم تأكيد الحجز',
+  goingToMovies: 'إنت رايح السينما.',
+  eTicket: 'YALLA · تذكرة إلكترونية',
+  dateTime: 'اليوم والمعاد',
+  reference: 'رقم الحجز',
+  totalPaid: 'إجمالي المدفوع',
+  seat: (id) => `كرسي ${id}`,
+  showCodes: 'ورّي الأكواد دي عند باب السينما.',
+  emailNote: (email) => `هتتبعت لـ ${email} أول ما إرسال الإيميل يشتغل.`,
+  findAnother: 'دوّر على فيلم تاني',
+
+  noTicketsTitle: 'لسه مفيش تذاكر',
+  noTicketsBody: 'التذاكر اللي بتحجزها من الجهاز ده هتظهر هنا.',
+  seatsList: (seats) => `الكراسي ${seats}`,
+
+  profileTitle: 'حسابي',
+  profileBody: 'تقدر تحجز من غير حساب، لكن إعادة البيع محتاجة حساب.',
+  language: 'اللغة',
+  restartNote: 'على iOS وأندرويد، اقفل التطبيق وافتحه تاني عشان الاتجاه يتغير في كل حتة.',
+
+  egp: (n) => `${n} جنيه`,
+  weekdays: ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'],
+  months: ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'],
+};
+
+// The restyle's copy lives in namespaces (t.shell.navMovies, t.home.…), so parallel features never overwrite each other's keys.
+const allEn = {
+  ...en, ...accounts.en, ...resale.en, ...seatChoice.en, ...location.en, ...support.en, ...operator.en,
+  shell: shell.en, home: home.en, booking: booking.en, accountUi: accountUi.en, resaleUi: resaleUi.en, operatorUi: operatorUi.en, checkoutUi: checkoutUi.en,
+};
+const allAr: Strings = {
+  ...ar, ...accounts.ar, ...resale.ar, ...seatChoice.ar, ...location.ar, ...support.ar, ...operator.ar,
+  shell: shell.ar, home: home.ar, booking: booking.ar, accountUi: accountUi.ar, resaleUi: resaleUi.ar, operatorUi: operatorUi.ar, checkoutUi: checkoutUi.ar,
+};
+
+export type Strings = typeof allEn;
+export type Lang = 'en' | 'ar';
+export const strings: Record<Lang, Strings> = { en: allEn, ar: allAr };
