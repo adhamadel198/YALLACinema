@@ -1,26 +1,33 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import type { ShowChange } from '../api/operator';
+import { clock } from '../format';
 import { useI18n } from '../i18n';
-import { useTheme } from '../theme';
+import { colors } from '../theme';
+import { useType } from '../typography';
 import { Line } from './ui';
 
-/** On a ticket whose show the cinema changed or cancelled after it was booked (BRD 9). */
-export function ShowChangeNotice({ change }: { change?: ShowChange | null }) {
-  const theme = useTheme();
+/**
+ * On a ticket whose show the cinema changed or cancelled after it was booked (BRD 9): a cream notice card in the
+ * live `.notice` colours, with a gold border when the show is cancelled.
+ */
+export function ShowChangeNotice({ change, style }: { change?: ShowChange | null; style?: StyleProp<ViewStyle> }) {
   const { t } = useI18n();
+  const { font } = useType();
   if (!change) return null;
   const cancelled = change.kind === 'cancelled';
   return (
-    <View accessibilityRole="alert" style={[styles.box, { borderColor: theme.accent, backgroundColor: theme.panel }]}>
-      <Text style={[styles.title, { color: theme.accent }]}>{cancelled ? t.op.noticeCancelledTitle : t.op.noticeChangedTitle}</Text>
-      {change.kind === 'changed' && change.changed.includes('time') ? <Line label={t.op.newTime} value={change.localTime} strong /> : null}
-      {change.kind === 'changed' && change.changed.includes('format') ? <Line label={t.op.newFormat} value={t.op.formatName(change.format)} strong /> : null}
-      <Text style={{ color: theme.ink, marginTop: 4, lineHeight: 20 }}>{cancelled ? t.op.noticeCancelledBody : t.op.noticeChangedBody}</Text>
+    <View role="alert" style={[styles.box, cancelled && styles.cancelled, style]} testID="show-change-notice">
+      <Text role="heading" aria-level={2} style={[font(800), styles.title]}>{cancelled ? t.op.noticeCancelledTitle : t.op.noticeChangedTitle}</Text>
+      {change.kind === 'changed' && change.changed.includes('time') ? <Line tone="cream" label={t.op.newTime} value={clock(change.localTime, t)} strong /> : null}
+      {change.kind === 'changed' && change.changed.includes('format') ? <Line tone="cream" label={t.op.newFormat} value={t.op.formatName(change.format)} strong /> : null}
+      <Text style={[font(400), styles.body]}>{cancelled ? t.op.noticeCancelledBody : t.op.noticeChangedBody}</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  box: { borderWidth: 1.5, borderStartWidth: 5, borderRadius: 14, padding: 14, marginBottom: 14 },
-  title: { fontSize: 16, fontWeight: '800', marginBottom: 6 },
+  box: { backgroundColor: colors.noticeBg, borderRadius: 11, padding: 14, borderWidth: 1, borderColor: colors.noticeBg },
+  cancelled: { borderWidth: 2, borderColor: colors.eyebrow },
+  title: { color: colors.badgeInk, fontSize: 15, lineHeight: 22, marginBottom: 4 },
+  body: { color: colors.noticeInk, fontSize: 13, lineHeight: 20, marginTop: 4 },
 });

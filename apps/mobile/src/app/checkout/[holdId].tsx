@@ -1,22 +1,27 @@
-import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useRef, useState, type ComponentProps } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
+import { useEffect, useRef, useState } from 'react';
+import { KeyboardAvoidingView, Platform, Text, View } from 'react-native';
 import { api, ApiError } from '../../api/client';
 import { rememberBooking } from '../../api/myBookings';
 import type { Guest, PaymentMethod } from '../../api/types';
 import { useRequest } from '../../api/useRequest';
 import { useAuth } from '../../auth';
 import { signInHref } from '../../auth/routes';
-import { Button, Line, Message, Panel } from '../../components/ui';
-import { mmss, showDate } from '../../format';
+import { HoldTimer, OrderSummary, PayOptions, PolicyCheck } from '../../components/checkout/CheckoutParts';
+import { Field } from '../../components/form';
+import { Columns, Crumbs, Page, PageIntro, Steps } from '../../components/page';
+import { Button, H2, Notice, Panel, Spinner, StatusText, TextLink } from '../../components/ui';
+import { mmss } from '../../format';
 import { useI18n } from '../../i18n';
-import { describeSeats } from '../../seats';
-import { useTheme } from '../../theme';
+import { useLayout } from '../../layout';
+import { colors } from '../../theme';
+import { useType } from '../../typography';
 
 /** Guest checkout (BRD 6, 7.3, 7.4): contact details, payment method, cinema policy, then pay. */
 export default function Checkout() {
-  const theme = useTheme();
   const { t, lang } = useI18n();
+  const { type } = useType();
+  const { wide } = useLayout();
   const { holdId } = useLocalSearchParams<{ holdId: string }>();
   const hold = useRequest(() => api.getHold(holdId), [holdId, lang]);
   const { account } = useAuth();
@@ -39,16 +44,38 @@ export default function Checkout() {
     if (account) setGuest((g) => ({ name: g.name || account.name, email: g.email || account.email, mobile: g.mobile || account.mobile }));
   }, [account]);
 
-  const methods: { value: PaymentMethod; label: string }[] = [
-    { value: 'card', label: t.card },
-    { value: 'wallet', label: t.wallet },
-  ];
+  const crumbs = [{ label: t.shell.crumbHome, href: '/' as const }, { label: t.shell.crumbBooking }, { label: t.checkout }];
+  const head = (lead: string) => (
+    <>
+      <Stack.Screen options={{ title: t.checkout }} />
+      <Crumbs items={crumbs} />
+      <PageIntro eyebrow={t.checkoutUi.eyebrow} title={t.checkout} lead={lead} />
+      <Steps step={2} />
+    </>
+  );
 
-  if (hold.error) return <Message text={t.holdExpired} onRetry={() => router.back()} retryLabel={t.goBack} />;
-  if (!hold.data) return <ActivityIndicator style={{ flex: 1 }} color={theme.accent} />;
   const h = hold.data;
-  const left = Date.parse(h.expiresAt) - now;
+  const left = h ? Date.parse(h.expiresAt) - now : 0;
+
+  // The hold is gone (expired, released or unknown): say so and send the person back to the seat map.
+  if (hold.error || (h && left <= 0)) {
+    return (
+      <Page footer="checkout">
+        {head(t.checkoutUi.lead)}
+        <Panel padding={23} style={{ maxWidth: 560 }}>
+          <H2>{t.checkoutUi.expiredTitle}</H2>
+          <Notice tone="danger" role="alert">{t.holdExpired}</Notice>
+          <Button title={t.checkoutUi.chooseAgain} onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))} inline style={{ marginTop: 18 }} />
+        </Panel>
+      </Page>
+    );
+  }
+  if (!h) {
+    return <Page footer="checkout">{head(t.checkoutUi.lead)}<Spinner /></Page>;
+  }
+
   const valid = guest.name.trim().length >= 2 && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(guest.email.trim()) && /^\+?[0-9 ]{8,16}$/.test(guest.mobile.trim());
+  const set = (key: keyof Guest) => (v: string) => setGuest((g) => ({ ...g, [key]: v }));
 
   async function pay() {
     if (paying.current) return;
@@ -74,92 +101,45 @@ export default function Checkout() {
     router.back();
   }
 
-  if (left <= 0) return <Message text={t.holdExpired} onRetry={() => router.back()} retryLabel={t.goBack} />;
+  const fieldGap = { marginTop: 13, marginBottom: 0 };
+  const form = (
+    <Panel key="form" padding={23} testID="checkout-form">
+      <H2 style={{ marginBottom: 0 }}>{t.yourDetails}</H2>
+      {account ? null : (
+        <View style={{ marginTop: 6 }}>
+          <Text style={[type.small, { color: colors.muted }]}>{t.noAccountNeeded}</Text>
+          <TextLink title={t.checkoutSignInPrompt} size={13} onPress={() => router.push(signInHref(`/checkout/${holdId}`))} style={{ alignSelf: 'flex-start' }} />
+        </View>
+      )}
+      <Field label={t.fullName} value={guest.name} onChangeText={set('name')} placeholder={t.checkoutUi.namePlaceholder}
+        autoComplete="name" textContentType="name" style={fieldGap} />
+      <Field label={t.email} value={guest.email} onChangeText={set('email')} placeholder={t.checkoutUi.emailPlaceholder} ltr
+        autoComplete="email" keyboardType="email-address" autoCapitalize="none" autoCorrect={false} textContentType="emailAddress" style={fieldGap} />
+      <Field label={t.mobile} value={guest.mobile} onChangeText={set('mobile')} placeholder={t.mobilePlaceholder} ltr
+        autoComplete="tel" keyboardType="phone-pad" textContentType="telephoneNumber" style={fieldGap} />
 
-  const field = (key: keyof Guest, label: string, props: Partial<ComponentProps<typeof TextInput>>) => (
-    <View style={{ marginBottom: 12 }}>
-      <Text style={[styles.label, { color: theme.muted }]}>{label}</Text>
-      <TextInput
-        value={guest[key]}
-        onChangeText={(v) => setGuest((g) => ({ ...g, [key]: v }))}
-        placeholderTextColor={theme.muted}
-        accessibilityLabel={label}
-        {...props}
-        style={[styles.input, { color: theme.ink, borderColor: theme.line, backgroundColor: theme.panel }, key !== 'name' && { direction: 'ltr', textAlign: lang === 'ar' ? 'right' : 'left' }]}
-      />
-    </View>
+      <H2 style={{ marginTop: 25 }}>{t.paymentMethod}</H2>
+      <PayOptions value={method} onChange={setMethod} />
+
+      <PolicyCheck checked={accepted} onToggle={() => setAccepted((a) => !a)} cinema={h.showtime.cinema.name} policy={h.showtime.cinema.cancellationPolicy} />
+      <Notice style={{ marginTop: 16 }}>{`🔒 ${t.paymentSimulated}`}</Notice>
+
+      {error ? <StatusText tone="danger" style={{ marginTop: 14 }}>{error}</StatusText> : null}
+      <Button title={t.checkoutUi.paySecurely(t.egp(h.price.total))} onPress={pay} busy={busy} disabled={!valid || !accepted}
+        style={{ marginTop: error ? 8 : 16 }} testID="pay" />
+      <Button title={t.cancelHold} kind="dark" onPress={cancel} style={{ marginTop: 14 }} />
+    </Panel>
   );
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
-        <Panel>
-          <Text style={[styles.title, { color: theme.ink }]}>{h.showtime.movie.title}</Text>
-          <Text style={{ color: theme.muted, marginBottom: 10 }}>{h.showtime.cinema.name} · {showDate(h.showtime.startsAt, t)}</Text>
-          <Line label={t.seats} value={describeSeats(h.seats)} />
-          <Line label={t.ticketsLine(h.seats.length, t.egp(h.showtime.price))} value={t.egp(h.price.tickets)} />
-          <Line label={t.platformFee} value={t.egp(h.price.fees)} />
-          <Line label={t.total} value={t.egp(h.price.total)} strong />
-          <Text style={{ color: left < 120000 ? theme.accent : theme.good, marginTop: 8, fontSize: 13 }}>
-            {t.heldFor(mmss(left))}
-          </Text>
-        </Panel>
-
-        <Text style={[styles.h2, { color: theme.ink }]}>{t.yourDetails}</Text>
-        {account ? (
-          <Text style={{ color: theme.muted, marginBottom: 12 }}>{t.checkoutSignedIn(account.email)}</Text>
-        ) : (
-          <>
-            <Text style={{ color: theme.muted }}>{t.noAccountNeeded}</Text>
-            <Pressable onPress={() => router.push(signInHref(`/checkout/${holdId}`))} accessibilityRole="link" style={{ marginTop: 4, marginBottom: 12, alignSelf: 'flex-start' }}>
-              <Text style={{ color: theme.accent, fontWeight: '700' }}>{t.checkoutSignInPrompt}</Text>
-            </Pressable>
-          </>
-        )}
-        {field('name', t.fullName, { autoComplete: 'name', textContentType: 'name' })}
-        {field('email', t.email, { autoComplete: 'email', keyboardType: 'email-address', autoCapitalize: 'none', textContentType: 'emailAddress' })}
-        {field('mobile', t.mobile, { autoComplete: 'tel', keyboardType: 'phone-pad', placeholder: t.mobilePlaceholder, textContentType: 'telephoneNumber' })}
-
-        <Text style={[styles.h2, { color: theme.ink }]}>{t.paymentMethod}</Text>
-        <View style={{ flexDirection: 'row', gap: 8 }}>
-          {methods.map((m) => {
-            const on = m.value === method;
-            return (
-              <Pressable key={m.value} onPress={() => setMethod(m.value)} accessibilityRole="radio" aria-checked={on}
-                style={[styles.method, { borderColor: on ? theme.accent : theme.line, backgroundColor: theme.panel }]}>
-                <Text style={{ color: theme.ink, fontWeight: on ? '800' : '500' }}>{m.label}</Text>
-              </Pressable>
-            );
-          })}
-        </View>
-        <Text style={{ color: theme.muted, fontSize: 12, marginTop: 8 }}>
-          {t.paymentSimulated}
-        </Text>
-
-        <Pressable onPress={() => setAccepted((a) => !a)} accessibilityRole="checkbox" aria-checked={accepted} style={styles.policy}>
-          <View style={[styles.box, { borderColor: accepted ? theme.accent : theme.line, backgroundColor: accepted ? theme.accent : 'transparent' }]}>
-            {accepted && <Text style={{ color: theme.accentInk, fontSize: 12, fontWeight: '900' }}>✓</Text>}
-          </View>
-          <Text style={{ color: theme.ink, flex: 1 }}>
-            {t.acceptPolicy(h.showtime.cinema.name)}
-            <Text style={{ color: theme.muted }}>{h.showtime.cinema.cancellationPolicy}</Text>
-          </Text>
-        </Pressable>
-
-        {error && <Text style={{ color: theme.accent, marginBottom: 12 }}>{error}</Text>}
-        <Button title={t.pay(t.egp(h.price.total))} onPress={pay} busy={busy} disabled={!valid || !accepted} />
-        <Button title={t.cancelHold} kind="secondary" onPress={cancel} style={{ marginTop: 10 }} />
-      </ScrollView>
+      <Page footer="checkout">
+        {head(account ? t.checkoutSignedIn(account.email) : t.checkoutUi.lead)}
+        <HoldTimer left={left} style={{ marginTop: -8, marginBottom: 22 }} />
+        <Columns ratio={[1.25, 0.75]} stickyEnd>
+          {[form, <OrderSummary key="summary" hold={h} left={wide ? left : undefined} />]}
+        </Columns>
+      </Page>
     </KeyboardAvoidingView>
   );
 }
-
-const styles = StyleSheet.create({
-  title: { fontSize: 20, fontWeight: '800' },
-  h2: { fontSize: 18, fontWeight: '800', marginTop: 24, marginBottom: 6 },
-  label: { fontSize: 13, marginBottom: 4 },
-  input: { borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 16 },
-  method: { flex: 1, borderWidth: 1.5, borderRadius: 12, padding: 14, alignItems: 'center' },
-  policy: { flexDirection: 'row', gap: 10, alignItems: 'flex-start', marginVertical: 20 },
-  box: { width: 22, height: 22, borderWidth: 1.5, borderRadius: 6, alignItems: 'center', justifyContent: 'center', marginTop: 1 },
-});

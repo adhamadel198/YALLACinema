@@ -14,6 +14,7 @@ import * as booking from './features/booking';
 import * as accountUi from './features/accountUi';
 import * as resaleUi from './features/resaleUi';
 import * as operatorUi from './features/operatorUi';
+import * as checkoutUi from './features/checkoutUi';
 
 const en = {
   tabMovies: 'Movies',
@@ -237,11 +238,11 @@ const ar: BaseStrings = {
 // The restyle's copy lives in namespaces (t.shell.navMovies, t.home.…), so parallel features never overwrite each other's keys.
 const allEn = {
   ...en, ...accounts.en, ...resale.en, ...seatChoice.en, ...location.en, ...support.en, ...operator.en,
-  shell: shell.en, home: home.en, booking: booking.en, accountUi: accountUi.en, resaleUi: resaleUi.en, operatorUi: operatorUi.en,
+  shell: shell.en, home: home.en, booking: booking.en, accountUi: accountUi.en, resaleUi: resaleUi.en, operatorUi: operatorUi.en, checkoutUi: checkoutUi.en,
 };
 const allAr: Strings = {
   ...ar, ...accounts.ar, ...resale.ar, ...seatChoice.ar, ...location.ar, ...support.ar, ...operator.ar,
-  shell: shell.ar, home: home.ar, booking: booking.ar, accountUi: accountUi.ar, resaleUi: resaleUi.ar, operatorUi: operatorUi.ar,
+  shell: shell.ar, home: home.ar, booking: booking.ar, accountUi: accountUi.ar, resaleUi: resaleUi.ar, operatorUi: operatorUi.ar, checkoutUi: checkoutUi.ar,
 };
 
 export type Strings = typeof allEn;
