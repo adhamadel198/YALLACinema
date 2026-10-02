@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState, type ComponentProps } from 'react';
+import { useEffect, useRef, useState, type ComponentProps } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { api, ApiError } from '../../api/client';
 import { rememberBooking } from '../../api/myBookings';
@@ -24,6 +24,8 @@ export default function Checkout() {
   const [method, setMethod] = useState<PaymentMethod>('card');
   const [accepted, setAccepted] = useState(false);
   const [busy, setBusy] = useState(false);
+  /** A second Pay while one is in flight is ignored, so nobody pays twice. */
+  const paying = useRef(false);
   const [error, setError] = useState<string>();
   const [now, setNow] = useState(Date.now());
 
@@ -49,6 +51,8 @@ export default function Checkout() {
   const valid = guest.name.trim().length >= 2 && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(guest.email.trim()) && /^\+?[0-9 ]{8,16}$/.test(guest.mobile.trim());
 
   async function pay() {
+    if (paying.current) return;
+    paying.current = true;
     setBusy(true);
     setError(undefined);
     try {
@@ -60,6 +64,7 @@ export default function Checkout() {
       const status = e instanceof ApiError ? e.status : 0;
       setError(status === 402 ? t.paymentFailed : status === 409 ? t.cinemaFailed : status === 410 ? t.holdExpired : t.genericError);
     } finally {
+      paying.current = false;
       setBusy(false);
     }
   }

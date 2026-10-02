@@ -1,5 +1,5 @@
 import { router, Stack, useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { Account } from '../../api/auth';
 import { ApiError } from '../../api/client';
@@ -141,13 +141,17 @@ function FindBooking() {
   const { t } = useI18n();
   const [reference, setReference] = useState('');
   const [busy, setBusy] = useState(false);
+  // Enter in the field searches too: a second search while one is in flight is ignored.
+  const finding = useRef(false);
   const [found, setFound] = useState<Awaited<ReturnType<typeof operatorApi.find>>>();
   const [error, setError] = useState<string>();
 
   async function find() {
+    if (finding.current) return;
     const typed = reference.trim().toUpperCase();
     setFound(undefined);
     if (!/^[A-Z0-9-]{3,32}$/.test(typed)) return setError(t.op.badReference);
+    finding.current = true;
     setBusy(true);
     setError(undefined);
     try {
@@ -156,6 +160,7 @@ function FindBooking() {
       const status = e instanceof ApiError ? e.status : 0;
       setError(status === 404 ? t.op.notFound : status === 403 ? t.op.otherCinema : t.genericError);
     } finally {
+      finding.current = false;
       setBusy(false);
     }
   }

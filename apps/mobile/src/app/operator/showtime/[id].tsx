@@ -1,6 +1,6 @@
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { HeaderBackButton } from 'expo-router/react-navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ApiError } from '../../../api/client';
 import { operatorApi, type ChangeRecord, type Correction, type StaffShowDetail } from '../../../api/operator';
@@ -108,6 +108,8 @@ function Editor({ detail: { show: s, formats, maxPrice }, onSaved }: { detail: S
   const [price, setPrice] = useState(String(s.price));
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
+  /** A second save, cancel or reinstate while one is in flight is ignored. */
+  const sending = useRef(false);
   const [done, setDone] = useState<string>();
   const [error, setError] = useState<string>();
 
@@ -133,6 +135,8 @@ function Editor({ detail: { show: s, formats, maxPrice }, onSaved }: { detail: S
 
   /** `message` confirms the change; a cancelled show says so itself. */
   async function send(body: Correction, message?: string) {
+    if (sending.current) return;
+    sending.current = true;
     setBusy(true);
     setError(undefined);
     setDone(undefined);
@@ -144,6 +148,7 @@ function Editor({ detail: { show: s, formats, maxPrice }, onSaved }: { detail: S
     } catch (e) {
       setError(e instanceof ApiError && e.status === 404 ? t.op.notToday : t.genericError);
     } finally {
+      sending.current = false;
       setBusy(false);
     }
   }

@@ -1,5 +1,5 @@
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState, type ComponentProps } from 'react';
+import { useEffect, useRef, useState, type ComponentProps } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { api, ApiError } from '../../../api/client';
 import { RESALE_BUYER_FEE, RESALE_SELLER_FEE, resaleApi, sellerReceives, type PayoutDetails, type PayoutMethod } from '../../../api/resale';
@@ -42,6 +42,8 @@ export default function SellTickets() {
   const [priceText, setPriceText] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
+  /** Saving payout details or listing again while one is in flight is ignored. */
+  const sending = useRef(false);
 
   const loaded = data.data;
   useEffect(() => {
@@ -74,6 +76,8 @@ export default function SellTickets() {
     : form.bankName.trim().length >= 2 && form.accountName.trim().length >= 2 && /^[A-Za-z0-9 ]{6,40}$/.test(latinDigits(form.accountNumber.trim()));
 
   async function savePayout() {
+    if (sending.current) return;
+    sending.current = true;
     setSavingPayout(true);
     setPayoutError(undefined);
     try {
@@ -86,11 +90,14 @@ export default function SellTickets() {
     } catch (e) {
       setPayoutError(e instanceof ApiError && e.status === 400 ? t.resalePayoutInvalid : t.genericError);
     } finally {
+      sending.current = false;
       setSavingPayout(false);
     }
   }
 
   async function list() {
+    if (sending.current) return;
+    sending.current = true;
     setBusy(true);
     setError(undefined);
     try {
@@ -111,6 +118,7 @@ export default function SellTickets() {
           : t.genericError,
       );
     } finally {
+      sending.current = false;
       setBusy(false);
     }
   }

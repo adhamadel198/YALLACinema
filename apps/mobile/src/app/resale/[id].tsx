@@ -1,5 +1,5 @@
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ApiError } from '../../api/client';
 import { rememberBooking } from '../../api/myBookings';
@@ -31,6 +31,8 @@ export default function BuyResale() {
   const [selected, setSelected] = useState<string[]>([]);
   const [method, setMethod] = useState<PaymentMethod>('card');
   const [busy, setBusy] = useState(false);
+  /** A second Pay while one is in flight is ignored, so nobody pays twice. */
+  const paying = useRef(false);
   const [error, setError] = useState<string>();
 
   // Everything for sale starts selected; seats someone else bought meanwhile drop out of the choice on reload.
@@ -56,6 +58,8 @@ export default function BuyResale() {
   ];
 
   async function buy() {
+    if (paying.current) return;
+    paying.current = true;
     setBusy(true);
     setError(undefined);
     try {
@@ -76,6 +80,7 @@ export default function BuyResale() {
           : t.genericError,
       );
     } finally {
+      paying.current = false;
       setBusy(false);
     }
   }

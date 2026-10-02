@@ -21,6 +21,8 @@ export default function SignUp() {
   const [details, setDetails] = useState<Details>({ name: '', email: typeof params.email === 'string' ? params.email : '', mobile: '', password: '' });
   const [tried, setTried] = useState(false);
   const [busy, setBusy] = useState(false);
+  // Enter in the password field submits too: a second submit while one is in flight is ignored.
+  const submitting = useRef(false);
   const [error, setError] = useState<{ text: string; taken?: boolean }>();
   const refs = { email: useRef<TextInput>(null), mobile: useRef<TextInput>(null), password: useRef<TextInput>(null) };
 
@@ -34,9 +36,11 @@ export default function SignUp() {
   const shown = (key: keyof Details) => (tried ? problems[key] : undefined);
 
   async function submit() {
+    if (submitting.current) return;
     setTried(true);
     setError(undefined);
     if (Object.values(problems).some(Boolean)) return;
+    submitting.current = true;
     setBusy(true);
     try {
       await signUp({ name: details.name.trim(), email: details.email.trim(), mobile: details.mobile.trim(), password: details.password });
@@ -44,6 +48,7 @@ export default function SignUp() {
     } catch (e) {
       setError({ text: authErrorMessage(e, t), taken: e instanceof ApiError && e.status === 409 });
       setBusy(false);
+      submitting.current = false;
     }
   }
 
