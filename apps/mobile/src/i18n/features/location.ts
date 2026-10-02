@@ -2,7 +2,7 @@
 
 export const en = {
   distanceFrom: 'Distance from',
-  useMyLocation: '📍 Use my location',
+  useMyLocation: '⌖  Use my location',
   chooseOrigin: 'Use your location or pick an area to sort by distance.',
   locating: 'Finding your location…',
   locatingSlow: 'Still finding your location. This can take a while indoors, or you can pick an area instead.',
@@ -23,7 +23,7 @@ export const en = {
 
 export const ar: typeof en = {
   distanceFrom: 'المسافة من',
-  useMyLocation: '📍 استخدم موقعي',
+  useMyLocation: '⌖  استخدم موقعي',
   chooseOrigin: 'استخدم موقعك أو اختار منطقة عشان نرتّب حسب المسافة.',
   locating: 'بنحدد موقعك…',
   locatingSlow: 'لسه بنحدد موقعك، وده ممكن ياخد وقت جوه المباني. تقدر تختار منطقة بدل كده.',

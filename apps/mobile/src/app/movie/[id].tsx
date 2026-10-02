@@ -1,133 +1,25 @@
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Platform, Text, View, type ScrollView } from 'react-native';
 import { api } from '../../api/client';
-import { MAX_SEATS_PER_BOOKING, type Area, type Arrangement, type ShowtimeFilters } from '../../api/types';
+import { MAX_SEATS_PER_BOOKING, type Area, type Arrangement, type ShowtimeFilters, type ShowtimeResult } from '../../api/types';
 import { useRequest } from '../../api/useRequest';
+import { FactTag, FilterGroup, MovieHero, SeatCount, ShowCard, ToggleButton } from '../../components/booking/movie';
+import { ageRating, dayName, isToday } from '../../components/booking/when';
 import { Chips } from '../../components/Chips';
-import { Poster } from '../../components/Poster';
-import { Message } from '../../components/ui';
+import { Select } from '../../components/form';
+import { Crumbs, Page } from '../../components/page';
+import { Button, Eyebrow, H1, H2, H3, Lead, Message, Notice, Panel, Spinner } from '../../components/ui';
+import { clock } from '../../format';
 import { useI18n } from '../../i18n';
+import { useLayout } from '../../layout';
 import { distanceText, DistanceSortFilter, DistanceSortSummary } from '../../location/DistanceSort';
 import { useDistanceSort } from '../../location/useDistanceSort';
-import { useTheme } from '../../theme';
-
-/** Movie details plus the seat-group showtime search (GET /v1/movies/:id/showtimes). */
-export default function MovieScreen() {
-  const theme = useTheme();
-  const { t, lang } = useI18n();
-  const { id } = useLocalSearchParams<{ id: string }>();
-  const [count, setCount] = useState(2);
-  const [arrangement, setArrangement] = useState<Arrangement>('either');
-  const movie = useRequest(() => api.movie(id), [id, lang]);
-  const [filtersOpen, setFiltersOpen] = useState(false);
-  const [area, setArea] = useState<Area | ''>('');
-  const [cinemaId, setCinemaId] = useState('');
-  const [time, setTime] = useState<keyof typeof timeRanges>('any');
-  const distance = useDistanceSort();
-  const filters: ShowtimeFilters = { area: area || undefined, cinemaId: cinemaId || undefined, ...timeRanges[time], ...distance.query };
-  const activeFilters = [area, cinemaId, time !== 'any', distance.sort === 'distance'].filter(Boolean).length;
-  const shows = useRequest(() => api.showtimes(id, count, arrangement, filters), [id, count, arrangement, lang, JSON.stringify(filters)]);
-  const cinemas = useRequest(api.cinemas, [lang]);
-  const arrangements: { value: Arrangement; label: string }[] = [
-    { value: 'either', label: t.either },
-    { value: 'connected', label: t.together },
-    { value: 'separated', label: t.separated },
-  ];
-
-  if (movie.error) return <Message text={t.loadFailed} onRetry={movie.reload} />;
-  if (!movie.data) return <ActivityIndicator style={{ flex: 1 }} color={theme.accent} />;
-  const m = movie.data;
-
-  return (
-    <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
-      <Stack.Screen options={{ title: m.title }} />
-      <Poster movie={m} style={{ height: 260 }} />
-      <Text style={[styles.h1, { color: theme.ink }]}>{m.title}</Text>
-      <Text style={{ color: theme.muted }}>{m.genre} · {m.ageRating} · {m.language}</Text>
-      <Text style={[styles.body, { color: theme.ink }]}>{m.synopsis}</Text>
-      <Text style={{ color: theme.muted, fontSize: 13 }}>{m.credits}</Text>
-
-      <Text style={[styles.h2, { color: theme.ink }]}>{t.howManySeats}</Text>
-      <View style={styles.row}>
-        <Pressable accessibilityLabel={t.fewerSeats} disabled={count <= 1}
-          onPress={() => setCount((c) => Math.max(1, c - 1))}
-          style={[styles.step, { borderColor: theme.line }, count <= 1 && { opacity: 0.35 }]}>
-          <Text style={{ color: theme.ink, fontSize: 18 }}>−</Text>
-        </Pressable>
-        <Text style={[styles.count, { color: theme.ink }]}>{count}</Text>
-        <Pressable accessibilityLabel={t.moreSeats} disabled={count >= MAX_SEATS_PER_BOOKING}
-          onPress={() => setCount((c) => Math.min(MAX_SEATS_PER_BOOKING, c + 1))}
-          style={[styles.step, { borderColor: theme.line }, count >= MAX_SEATS_PER_BOOKING && { opacity: 0.35 }]}>
-          <Text style={{ color: theme.ink, fontSize: 18 }}>+</Text>
-        </Pressable>
-      </View>
-      {count >= MAX_SEATS_PER_BOOKING && <Text style={{ color: theme.muted, fontSize: 12, marginBottom: 10 }}>{t.maxSeats(MAX_SEATS_PER_BOOKING)}</Text>}
-      <View style={styles.row}>
-        {arrangements.map((a) => {
-          const on = a.value === arrangement;
-          return (
-            <Pressable key={a.value} onPress={() => setArrangement(a.value)}
-              style={[styles.chip, { borderColor: on ? theme.accent : theme.line, backgroundColor: on ? theme.accent : 'transparent' }]}>
-              <Text style={{ color: on ? theme.accentInk : theme.ink, fontWeight: '600' }}>{a.label}</Text>
-            </Pressable>
-          );
-        })}
-      </View>
-
-      <Pressable onPress={() => setFiltersOpen((o) => !o)} accessibilityRole="button" aria-expanded={filtersOpen}
-        style={[styles.filterToggle, { borderColor: activeFilters ? theme.accent : theme.line }]}>
-        <Text style={{ color: theme.ink, fontWeight: '700' }}>⚙  {activeFilters ? t.filtersActive(activeFilters) : t.filters}</Text>
-        <Text style={{ color: theme.muted }}>{filtersOpen ? '▴' : '▾'}</Text>
-      </Pressable>
-      {filtersOpen && (
-        <View style={[styles.filters, { backgroundColor: theme.panel, borderColor: theme.line }]}>
-          <Text style={[styles.filterLabel, { color: theme.muted }]}>{t.area}</Text>
-          <Chips label={t.area} value={area} onChange={(a) => { setArea(a); setCinemaId(''); }}
-            options={[{ value: '' as const, label: t.all }, ...areas.map((a) => ({ value: a, label: t.areas[a] }))]} />
-          <Text style={[styles.filterLabel, { color: theme.muted }]}>{t.cinema}</Text>
-          <Chips label={t.cinema} value={cinemaId} onChange={setCinemaId}
-            options={[{ value: '', label: t.all }, ...(cinemas.data ?? []).filter((c) => !area || c.area === area).map((c) => ({ value: c.id, label: c.name }))]} />
-          <Text style={[styles.filterLabel, { color: theme.muted }]}>{t.time}</Text>
-          <Chips label={t.time} value={time} onChange={setTime}
-            options={[{ value: 'any', label: t.anyTime }, { value: 'early', label: t.beforeSix }, { value: 'evening', label: t.sixToNine }, { value: 'late', label: t.afterNine }]} />
-          <DistanceSortFilter ds={distance} />
-          {activeFilters > 0 && (
-            <Pressable onPress={() => { setArea(''); setCinemaId(''); setTime('any'); distance.reset(); }} style={{ marginTop: 14 }}>
-              <Text style={{ color: theme.accent, fontWeight: '700' }}>{t.clearFilters}</Text>
-            </Pressable>
-          )}
-        </View>
-      )}
-      {!filtersOpen && <DistanceSortSummary ds={distance} onChange={() => setFiltersOpen(true)} />}
-
-      {shows.loading && <ActivityIndicator color={theme.accent} style={{ marginTop: 16 }} />}
-      {shows.error && <Text style={{ color: theme.ink, marginTop: 16 }}>{t.loadFailed}</Text>}
-      {shows.data?.length === 0 && <Text style={{ color: theme.muted, marginTop: 16 }}>{t.noShowtimes(count)}</Text>}
-      {shows.data?.map((s) => (
-        <Pressable key={s.showtimeId}
-          onPress={() => router.push({ pathname: '/showtime/[id]', params: { id: s.showtimeId, count: String(count), arrangement } })}
-          accessibilityLabel={[`${s.cinema.name} ${s.localTime}`, s.distanceKm != null && distanceText(t, distance.near, s.distanceKm)].filter(Boolean).join(', ')} style={[styles.show, { backgroundColor: theme.panel, borderColor: theme.line }]}>
-          <View style={{ flex: 1 }}>
-            <Text style={{ color: theme.ink, fontWeight: '800' }}>{s.cinema.name}</Text>
-            <Text style={{ color: theme.muted, fontSize: 12 }}>{s.cinema.detail}</Text>
-            {s.distanceKm != null && <Text style={{ color: theme.muted, fontSize: 12 }}>📍 {distanceText(t, distance.near, s.distanceKm)}</Text>}
-            <Text style={{ color: theme.good, fontSize: 12, marginTop: 4 }}>
-              {[s.matches.connected ? t.togetherOptions(s.matches.connected) : null,
-                s.matches.separated ? t.split(s.matches.separated.join('+')) : null].filter(Boolean).join(' · ')}
-            </Text>
-          </View>
-          <View style={{ alignItems: 'flex-end' }}>
-            <Text style={{ color: theme.ink, fontWeight: '800', fontSize: 16 }}>{s.localTime}</Text>
-            <Text style={{ color: theme.muted, fontSize: 12 }}>{t.plusFee(t.egp(s.price))}</Text>
-          </View>
-        </Pressable>
-      ))}
-    </ScrollView>
-  );
-}
+import { colors } from '../../theme';
+import { useType } from '../../typography';
 
 const areas: Area[] = ['Downtown Cairo', 'Maadi', 'New Cairo', '6th of October'];
+const arrangements: Arrangement[] = ['either', 'connected', 'separated'];
 
 const timeRanges = {
   any: {},
@@ -136,16 +28,153 @@ const timeRanges = {
   late: { from: '21:00' },
 } satisfies Record<string, Pick<ShowtimeFilters, 'from' | 'to'>>;
 
-const styles = StyleSheet.create({
-  filterToggle: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, marginTop: 6 },
-  filters: { borderWidth: 1, borderRadius: 14, padding: 14, marginTop: 8 },
-  filterLabel: { fontSize: 12, fontWeight: '700', marginTop: 10, marginBottom: 6 },
-  h1: { fontSize: 28, fontWeight: '800', marginTop: 16, letterSpacing: -0.6 },
-  h2: { fontSize: 20, fontWeight: '800', marginTop: 28, marginBottom: 10 },
-  body: { fontSize: 15, lineHeight: 24, marginVertical: 12 },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
-  step: { width: 40, height: 40, borderWidth: 1, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  count: { fontSize: 20, fontWeight: '800', minWidth: 32, textAlign: 'center' },
-  chip: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8 },
-  show: { flexDirection: 'row', borderWidth: 1, borderRadius: 14, padding: 14, marginTop: 10, gap: 12 },
-});
+/**
+ * Movie details plus the seat-group showtime search (GET /v1/movies/:id/showtimes), laid out like the live
+ * movie.html. Optional route params set the starting search: `count`, `arrangement`, `area`, and
+ * `focus=showtimes` to open scrolled to the cinemas.
+ */
+export default function MovieScreen() {
+  const { t, lang } = useI18n();
+  const { type, rtl } = useType();
+  const { wide } = useLayout();
+  const params = useLocalSearchParams<{ id: string; count?: string; arrangement?: string; area?: string; focus?: string }>();
+  const id = params.id;
+  const [count, setCount] = useState(() => Math.min(MAX_SEATS_PER_BOOKING, Math.max(1, Math.floor(Number(params.count)) || 2)));
+  const [arrangement, setArrangement] = useState<Arrangement>(() => (arrangements as string[]).includes(params.arrangement ?? '') ? params.arrangement as Arrangement : 'either');
+  const movie = useRequest(() => api.movie(id), [id, lang]);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [area, setArea] = useState<Area | ''>(() => (areas as string[]).includes(params.area ?? '') ? params.area as Area : '');
+  const [cinemaId, setCinemaId] = useState('');
+  const [time, setTime] = useState<keyof typeof timeRanges>('any');
+  const distance = useDistanceSort();
+  const filters: ShowtimeFilters = { area: area || undefined, cinemaId: cinemaId || undefined, ...timeRanges[time], ...distance.query };
+  const activeFilters = [area, cinemaId, time !== 'any', distance.sort === 'distance'].filter(Boolean).length;
+  const shows = useRequest(() => api.showtimes(id, count, arrangement, filters), [id, count, arrangement, lang, JSON.stringify(filters)]);
+  const cinemas = useRequest(api.cinemas, [lang]);
+  // The time picked on each cinema card; a card starts on its soonest show.
+  const [picked, setPicked] = useState<Record<string, string>>({});
+
+  const scroll = useRef<ScrollView>(null);
+  const showtimesY = useRef(0);
+  const focused = useRef(params.focus !== 'showtimes');
+  const toShowtimes = () => scroll.current?.scrollTo({ y: Math.max(0, showtimesY.current - 12), animated: true });
+  useEffect(() => {
+    if (focused.current || !shows.data) return;
+    focused.current = true;
+    setTimeout(toShowtimes, 50);
+  }, [shows.data]);
+
+  // One card per cinema, in the API's order (soonest or nearest first).
+  const groups = useMemo(() => {
+    const byCinema = new Map<string, { cinema: ShowtimeResult['cinema']; shows: ShowtimeResult[] }>();
+    for (const s of shows.data ?? []) {
+      const g = byCinema.get(s.cinema.id) ?? byCinema.set(s.cinema.id, { cinema: s.cinema, shows: [] }).get(s.cinema.id)!;
+      g.shows.push(s);
+    }
+    return [...byCinema.values()];
+  }, [shows.data]);
+
+  if (movie.error) return <Message text={t.loadFailed} onRetry={movie.reload} />;
+  if (!movie.data) return <Spinner style={{ flex: 1 }} />;
+  const m = movie.data;
+  const arrangementLabel = { either: t.booking.arrEither, connected: t.booking.arrConnected, separated: t.booking.arrSeparated };
+  const runtime = t.runtime(Math.floor(m.runtimeMinutes / 60), String(m.runtimeMinutes % 60).padStart(2, '0'));
+  const days = new Set((shows.data ?? []).map((s) => s.startsAt.slice(0, 10)));
+  const first = shows.data?.[0];
+  const listings = days.size === 1 && first ? t.booking.listingsOn(isToday(first.startsAt) ? t.booking.todayWord : dayName(first.startsAt, t)) : t.booking.listings;
+  const showLabel = (s: ShowtimeResult) =>
+    [`${s.cinema.name} ${clock(s.startsAt, t)}`, s.distanceKm != null && distanceText(t, distance.near, s.distanceKm)].filter(Boolean).join(', ');
+  const clearFilters = () => { setArea(''); setCinemaId(''); setTime('any'); distance.reset(); };
+
+  return (
+    <Page footer="movie" scrollRef={scroll}>
+      <Stack.Screen options={{ title: m.title }} />
+      <Crumbs items={[{ label: t.shell.crumbHome, href: '/' }, { label: t.shell.crumbMovies }, { label: m.title }]} />
+      {Platform.OS !== 'web' ? <View style={{ height: 16 }} /> : null}
+
+      {/* Details: hero art beside the title, facts, synopsis and credits (stacked on phones). */}
+      <View style={wide ? { flexDirection: 'row', alignItems: 'center', gap: 24 } : { gap: 24 }}>
+        <View style={wide ? { flex: 1 } : null}><MovieHero movie={m} /></View>
+        <View style={wide ? { flex: 1 } : null}>
+          <Eyebrow style={{ marginBottom: 7 }}>{t.booking.nowShowing}</Eyebrow>
+          <H1>{m.title}</H1>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 12 }}>
+            {[m.genre, runtime, ageRating(m.ageRating, rtl), m.language].map((f) => <FactTag key={f} label={f} />)}
+          </View>
+          <Lead style={{ marginTop: 16 }}>{m.synopsis}</Lead>
+          <Text style={[type.body, { color: colors.muted, marginTop: 15 }]}>{m.credits}</Text>
+          <Button title={t.booking.chooseShowtime} onPress={toShowtimes} inline style={{ marginTop: 18 }} />
+        </View>
+      </View>
+
+      {/* How many seats, and how they should sit. Results below update as soon as either changes. */}
+      <View style={{ paddingTop: 44 }} onLayout={(e) => { showtimesY.current = e.nativeEvent.layout.y; }}>
+        <Eyebrow style={{ marginBottom: 2 }}>{t.booking.findYourSeats}</Eyebrow>
+        <H2 style={{ marginBottom: 0 }}>{t.howManySeats}</H2>
+        <Text style={[type.body, { color: colors.muted, marginTop: 14, marginBottom: 16 }]}>{t.booking.exactOnly}</Text>
+        <Panel padding={16}>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-end', gap: 12 }}>
+            <SeatCount label={t.booking.numberOfSeats} value={count} max={MAX_SEATS_PER_BOOKING} onChange={setCount} style={{ width: 222 }} />
+            <Select label={t.booking.seatArrangement} value={arrangement} onChange={setArrangement}
+              options={arrangements.map((a) => ({ value: a, label: arrangementLabel[a] }))} style={{ marginVertical: 0, width: 230 }} />
+            <ToggleButton title={activeFilters ? t.booking.refineCount(activeFilters) : t.booking.refine} expanded={filtersOpen}
+              onPress={() => setFiltersOpen((o) => !o)} />
+          </View>
+          {count >= MAX_SEATS_PER_BOOKING ? <Text style={[type.caption, { marginTop: 8 }]}>{t.maxSeats(MAX_SEATS_PER_BOOKING)}</Text> : null}
+        </Panel>
+
+        {filtersOpen && (
+          <Panel padding={18} style={{ marginTop: 12 }}>
+            <H3 style={[{ fontSize: 18, lineHeight: 24 }]}>{t.booking.refineTitle}</H3>
+            <FilterGroup label={t.area}>
+              <Chips variant="time" label={t.area} value={area} onChange={(a) => { setArea(a); setCinemaId(''); }}
+                options={[{ value: '' as const, label: t.booking.allAreas }, ...areas.map((a) => ({ value: a, label: t.areas[a] }))]} />
+            </FilterGroup>
+            <FilterGroup label={t.cinema}>
+              <Chips variant="time" label={t.cinema} value={cinemaId} onChange={setCinemaId}
+                options={[{ value: '', label: t.booking.allCinemas }, ...(cinemas.data ?? []).filter((c) => !area || c.area === area).map((c) => ({ value: c.id, label: c.name }))]} />
+            </FilterGroup>
+            <FilterGroup label={t.booking.showtimeLabel}>
+              <Chips variant="time" label={t.booking.showtimeLabel} value={time} onChange={setTime}
+                options={[{ value: 'any', label: t.anyTime }, { value: 'early', label: t.beforeSix }, { value: 'evening', label: t.sixToNine }, { value: 'late', label: t.afterNine }]} />
+            </FilterGroup>
+            <DistanceSortFilter ds={distance} />
+            {activeFilters > 0 && <Button kind="link" size="small" title={t.clearFilters} onPress={clearFilters} style={{ marginTop: 10 }} />}
+          </Panel>
+        )}
+
+        {/* The matching cinemas and times (live: "Pick a cinema & time"). */}
+        <Eyebrow style={{ marginTop: 27, marginBottom: 2 }}>{listings}</Eyebrow>
+        <H2 style={{ marginBottom: 0 }}>{t.booking.pickCinemaTime}</H2>
+        {groups.length > 0 && (
+          <Text style={[type.body, { color: colors.muted, marginTop: 14 }]}>
+            {t.booking.resultsLine(groups.length, count, arrangementLabel[arrangement])}
+          </Text>
+        )}
+        {!filtersOpen && <DistanceSortSummary ds={distance} onChange={() => setFiltersOpen(true)} />}
+        <View style={{ marginTop: 10 }}>
+          {shows.loading && !shows.data ? <Spinner /> : null}
+          {shows.error ? <Message text={t.loadFailed} onRetry={shows.reload} /> : null}
+          {shows.data?.length === 0 && (
+            <Panel padding={30} style={{ alignItems: 'center', marginVertical: 6 }}>
+              <H3 style={{ textAlign: 'center' }}>{t.booking.noExactTitle}</H3>
+              <Text style={[type.small, { color: colors.muted, textAlign: 'center', marginTop: 6, maxWidth: 520 }]}>{t.booking.noExactBody}</Text>
+            </Panel>
+          )}
+          <View style={shows.loading ? { opacity: 0.6 } : null}>
+            {groups.map(({ cinema, shows: list }) => {
+              const selected = list.find((s) => s.showtimeId === picked[cinema.id]) ?? list[0];
+              return (
+                <ShowCard key={cinema.id} cinema={cinema} shows={list} selected={selected} timeLabel={showLabel}
+                  distance={selected.distanceKm != null ? distanceText(t, distance.near, selected.distanceKm) : undefined}
+                  onSelect={(sid) => setPicked((p) => ({ ...p, [cinema.id]: sid }))}
+                  onFindSeats={() => router.push({ pathname: '/showtime/[id]', params: { id: selected.showtimeId, count: String(count), arrangement } })} />
+              );
+            })}
+          </View>
+        </View>
+        <Notice style={{ marginTop: 6 }}>{t.booking.recheckNotice}</Notice>
+      </View>
+    </Page>
+  );
+}

@@ -1,49 +1,50 @@
-import { ActivityIndicator, Linking, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Linking, Platform, StyleSheet, Text, View } from 'react-native';
 import { Chips } from '../components/Chips';
+import { Button } from '../components/ui';
 import { useI18n } from '../i18n';
 import type { Strings } from '../i18n/strings';
-import { useTheme } from '../theme';
+import { colors } from '../theme';
+import { useType } from '../typography';
 import { AREAS } from './types';
 import type { DistanceSort, Near } from './useDistanceSort';
 
 /** The device location couldn't be used; the customer is offered an area instead. */
 const isProblem = (status: DistanceSort['status']) => status === 'denied' || status === 'unavailable' || status === 'timeout';
 
-/** "Sort by" in the Filters panel: soonest, or nearest to the device location or a picked area (BRD 7.1). */
+/**
+ * "Sort by" in the Refine panel: soonest, or nearest to the device location or a picked area (BRD 7.1). The
+ * origin sits in a dark box like the live search page's "Distance from" box.
+ */
 export function DistanceSortFilter({ ds }: { ds: DistanceSort }) {
-  const theme = useTheme();
   const { t } = useI18n();
+  const { type } = useType();
   return (
     <>
-      <Text style={[styles.label, { color: theme.muted }]}>{t.sortBy}</Text>
-      <Chips label={t.sortBy} value={ds.sort} onChange={ds.setSort}
-        options={[{ value: 'soonest', label: t.soonest }, { value: 'distance', label: t.nearest }]} />
+      <Text style={[type.label, styles.label]}>{t.sortBy}</Text>
+      <Chips variant="time" label={t.sortBy} value={ds.sort} onChange={ds.setSort}
+        options={[{ value: 'soonest', label: t.booking.soonestShowtime }, { value: 'distance', label: t.booking.distanceSort }]} />
       {ds.sort === 'distance' && (
-        <>
-          <Text style={[styles.label, { color: theme.muted }]}>{t.distanceFrom}</Text>
-          <Chips<Near> label={t.distanceFrom} value={ds.near} onChange={ds.setNear}
+        <View style={styles.origin}>
+          <Text style={[type.label, { marginBottom: 7 }]}>{t.distanceFrom}</Text>
+          <Chips<Near> variant="time" label={t.distanceFrom} value={ds.near} onChange={ds.setNear}
             options={[{ value: 'here', label: t.useMyLocation }, ...AREAS.map((a) => ({ value: a, label: t.areas[a] }))]} />
           <LocationStatusLine ds={ds} />
-        </>
+        </View>
       )}
     </>
   );
 }
 
-/** Shown above the results while the Filters panel is closed, so a remembered distance sort is never a surprise. */
+/** Shown above the results while the Refine panel is closed, so a remembered distance sort is never a surprise. */
 export function DistanceSortSummary({ ds, onChange }: { ds: DistanceSort; onChange: () => void }) {
-  const theme = useTheme();
   const { t } = useI18n();
+  const { type } = useType();
   if (ds.sort !== 'distance') return null;
-  const change = (
-    <Pressable onPress={onChange} accessibilityRole="button" hitSlop={8}>
-      <Text style={{ color: theme.accent, fontWeight: '700' }}>{t.change}</Text>
-    </Pressable>
-  );
+  const change = <Button kind="link" size="small" title={t.change} onPress={onChange} textStyle={{ fontSize: 12 }} style={{ paddingVertical: 2 }} />;
   if (ds.byDistance && ds.status !== 'locating' && ds.status !== 'slow') {
     return (
       <View style={styles.summary}>
-        <Text style={{ color: theme.ink, fontWeight: '700', flexShrink: 1 }}>
+        <Text style={[type.caption, { color: colors.ink, flexShrink: 1 }]}>
           {ds.near === 'here' ? t.nearestFromHere : t.nearestFromArea(t.areas[ds.near])}
         </Text>
         {change}
@@ -62,44 +63,37 @@ export function DistanceSortSummary({ ds, onChange }: { ds: DistanceSort; onChan
 
 /** What is happening with the device location, and what to do when it can't be used. */
 function LocationStatusLine({ ds, onPickArea }: { ds: DistanceSort; onPickArea?: () => void }) {
-  const theme = useTheme();
   const { t } = useI18n();
+  const { type } = useType();
   const { status, near } = ds;
 
   if (status === 'locating' || status === 'slow') {
     return (
       <View style={[styles.status, { flexDirection: 'row', alignItems: 'center', gap: 8 }]} accessibilityLiveRegion="polite">
-        <ActivityIndicator size="small" color={theme.accent} />
-        <Text style={{ color: theme.muted, fontSize: 13, flexShrink: 1 }}>{status === 'slow' ? t.locatingSlow : t.locating}</Text>
+        <ActivityIndicator size="small" color={colors.gold} />
+        <Text style={[type.micro, { flexShrink: 1 }]}>{status === 'slow' ? t.locatingSlow : t.locating}</Text>
       </View>
     );
   }
   if (isProblem(status)) {
     const message = status === 'denied' ? (Platform.OS === 'web' ? t.locationDeniedWeb : t.locationDeniedApp)
       : status === 'unavailable' ? t.locationUnavailable : t.locationTimeout;
+    const action = (title: string, onPress: () => void) => (
+      <Button kind="link" size="small" title={title} onPress={onPress} textStyle={{ fontSize: 12 }} style={{ paddingVertical: 2 }} />
+    );
     return (
-      <View style={[styles.status, styles.problem, { borderColor: theme.accent, backgroundColor: theme.bg }]} accessibilityLiveRegion="polite">
-        <Text style={{ color: theme.ink, fontSize: 13, lineHeight: 19 }}>{message}</Text>
+      <View style={[styles.status, styles.problem]} accessibilityLiveRegion="polite">
+        <Text style={[type.small, { color: colors.ink }]}>{message}</Text>
         <View style={styles.actions}>
-          <Pressable onPress={ds.retry} accessibilityRole="button" hitSlop={8}>
-            <Text style={{ color: theme.accent, fontWeight: '700' }}>{t.tryAgain}</Text>
-          </Pressable>
-          {onPickArea && (
-            <Pressable onPress={onPickArea} accessibilityRole="button" hitSlop={8}>
-              <Text style={{ color: theme.accent, fontWeight: '700' }}>{t.pickAnArea}</Text>
-            </Pressable>
-          )}
-          {status === 'denied' && Platform.OS !== 'web' && (
-            <Pressable onPress={() => Linking.openSettings()} accessibilityRole="button" hitSlop={8}>
-              <Text style={{ color: theme.accent, fontWeight: '700' }}>{t.openSettings}</Text>
-            </Pressable>
-          )}
+          {action(t.tryAgain, ds.retry)}
+          {onPickArea && action(t.pickAnArea, onPickArea)}
+          {status === 'denied' && Platform.OS !== 'web' && action(t.openSettings, () => Linking.openSettings())}
         </View>
       </View>
     );
   }
-  if (near === 'here' && status === 'ready') return <Text style={[styles.status, { color: theme.muted, fontSize: 12 }]}>{t.fromHere}</Text>;
-  if (!near) return <Text style={[styles.status, { color: theme.muted, fontSize: 12 }]}>{t.chooseOrigin}</Text>;
+  if (near === 'here' && status === 'ready') return <Text style={[type.micro, styles.status]}>{t.fromHere}</Text>;
+  if (!near) return <Text style={[type.micro, styles.status]}>{t.chooseOrigin}</Text>;
   return null;
 }
 
@@ -108,9 +102,10 @@ export const distanceText = (t: Strings, near: Near, km: number) =>
   near === 'here' ? t.kmFromYou(km) : near ? t.kmFromArea(km, t.areas[near]) : t.km(km);
 
 const styles = StyleSheet.create({
-  label: { fontSize: 12, fontWeight: '700', marginTop: 10, marginBottom: 6 },
+  label: { marginTop: 14, marginBottom: 7 },
+  origin: { backgroundColor: colors.control, borderRadius: 10, padding: 11, marginTop: 8 },
   status: { marginTop: 8 },
-  problem: { borderWidth: 1, borderStartWidth: 3, borderRadius: 10, padding: 10 },
-  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 18, marginTop: 8 },
-  summary: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 12 },
+  problem: { borderWidth: 1, borderColor: colors.line, borderStartWidth: 3, borderStartColor: colors.gold, borderRadius: 10, padding: 10, backgroundColor: colors.bg },
+  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 18, marginTop: 4 },
+  summary: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 8 },
 });
