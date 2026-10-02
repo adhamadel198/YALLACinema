@@ -1,30 +1,26 @@
 import { Tabs } from 'expo-router';
-import { Text, type ColorValue } from 'react-native';
-import { LanguageButton } from '../../components/LanguageButton';
+import { SiteHeader } from '../../components/shell/Header';
+import { TabBar } from '../../components/shell/TabBar';
 import { useI18n } from '../../i18n';
-import { useTheme } from '../../theme';
+import { colors } from '../../theme';
 
-const icon = (glyph: string) => ({ color }: { color: ColorValue }) => <Text style={{ color, fontSize: 18 }}>{glyph}</Text>;
-
+/** The four tabs, with the site header on top and the live site's bottom nav on phones (none on wide web). */
 export default function TabsLayout() {
-  const theme = useTheme();
   const { t } = useI18n();
   return (
     <Tabs
+      tabBar={(props) => <TabBar {...props} />}
+      // Back (browser, Android) returns to the previously visited tab, like pages of the live site.
+      backBehavior="history"
       screenOptions={{
-        headerStyle: { backgroundColor: theme.bg },
-        headerTintColor: theme.ink,
-        headerRight: () => <LanguageButton />,
-        tabBarStyle: { backgroundColor: theme.bg, borderTopColor: theme.line },
-        tabBarActiveTintColor: theme.accent,
-        tabBarInactiveTintColor: theme.muted,
-        sceneStyle: { backgroundColor: theme.bg },
+        header: () => <SiteHeader />,
+        sceneStyle: { backgroundColor: colors.bg },
       }}
     >
-      <Tabs.Screen name="index" options={{ title: t.tabMovies, tabBarIcon: icon('▶') }} />
-      <Tabs.Screen name="resale" options={{ title: t.tabResale, tabBarIcon: icon('⇄') }} />
-      <Tabs.Screen name="tickets" options={{ title: t.tabTickets, tabBarIcon: icon('▭') }} />
-      <Tabs.Screen name="account" options={{ title: t.tabProfile, tabBarIcon: icon('◯') }} />
+      <Tabs.Screen name="index" options={{ title: t.tabMovies }} />
+      <Tabs.Screen name="resale" options={{ title: t.tabResale }} />
+      <Tabs.Screen name="tickets" options={{ title: t.tabTickets }} />
+      <Tabs.Screen name="account" options={{ title: t.tabProfile }} />
     </Tabs>
   );
 }

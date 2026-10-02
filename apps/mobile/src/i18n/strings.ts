@@ -8,10 +8,16 @@ import * as operator from './features/operator';
 import * as resale from './features/resale';
 import * as seatChoice from './features/seatChoice';
 import * as support from './features/support';
+import * as shell from './features/shell';
+import * as home from './features/home';
+import * as booking from './features/booking';
+import * as accountUi from './features/accountUi';
+import * as resaleUi from './features/resaleUi';
+import * as operatorUi from './features/operatorUi';
 
 const en = {
   tabMovies: 'Movies',
-  tabTickets: 'Tickets',
+  tabTickets: 'My Tickets',
   tabProfile: 'Profile',
   switchLanguage: 'عربي',
   switchLanguageLabel: 'Switch to Arabic',
@@ -123,7 +129,7 @@ const ar: BaseStrings = {
   tabMovies: 'الأفلام',
   tabTickets: 'تذاكري',
   tabProfile: 'حسابي',
-  switchLanguage: 'EN',
+  switchLanguage: 'English',
   switchLanguageLabel: 'التحويل للإنجليزي',
   tryAgain: 'حاول تاني',
   goBack: 'ارجع',
@@ -228,8 +234,15 @@ const ar: BaseStrings = {
   months: ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'],
 };
 
-const allEn = { ...en, ...accounts.en, ...resale.en, ...seatChoice.en, ...location.en, ...support.en, ...operator.en };
-const allAr: Strings = { ...ar, ...accounts.ar, ...resale.ar, ...seatChoice.ar, ...location.ar, ...support.ar, ...operator.ar };
+// The restyle's copy lives in namespaces (t.shell.navMovies, t.home.…), so parallel features never overwrite each other's keys.
+const allEn = {
+  ...en, ...accounts.en, ...resale.en, ...seatChoice.en, ...location.en, ...support.en, ...operator.en,
+  shell: shell.en, home: home.en, booking: booking.en, accountUi: accountUi.en, resaleUi: resaleUi.en, operatorUi: operatorUi.en,
+};
+const allAr: Strings = {
+  ...ar, ...accounts.ar, ...resale.ar, ...seatChoice.ar, ...location.ar, ...support.ar, ...operator.ar,
+  shell: shell.ar, home: home.ar, booking: booking.ar, accountUi: accountUi.ar, resaleUi: resaleUi.ar, operatorUi: operatorUi.ar,
+};
 
 export type Strings = typeof allEn;
 export type Lang = 'en' | 'ar';

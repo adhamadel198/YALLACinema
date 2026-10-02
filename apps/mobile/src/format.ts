@@ -10,3 +10,12 @@ export function showDate(iso: string, t: Strings) {
 }
 
 export const mmss = (ms: number) => `${Math.floor(ms / 60000)}:${pad(Math.floor((ms % 60000) / 1000))}`;
+
+/**
+ * "7:45 PM" in English, "7:45 م" in Arabic, as the live site writes show times. Takes "19:45" or a showtime's ISO
+ * timestamp (its cinema-local time is kept, as in showDate).
+ */
+export function clock(time: string, t: Strings) {
+  const [h, m] = (time.length > 5 ? time.slice(11, 16) : time).split(':').map(Number);
+  return `${h % 12 || 12}:${pad(m)} ${h < 12 ? t.shell.am : t.shell.pm}`;
+}
