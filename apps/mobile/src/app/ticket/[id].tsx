@@ -25,12 +25,13 @@ export default function TicketScreen() {
   if (booking.error) return <Message text={t.loadFailed} onRetry={booking.reload} />;
   if (!booking.data) return <ActivityIndicator style={{ flex: 1 }} color={theme.accent} />;
   const b = booking.data;
+  const cancelled = b.showChange?.kind === 'cancelled';
 
   return (
     <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
       <ShowChangeNotice change={b.showChange} />
-      {b.showChange?.kind !== 'cancelled' && <Text style={[styles.ok, { color: theme.good }]}>{t.bookingConfirmed}</Text>}
-      {b.showChange?.kind !== 'cancelled' && <Text style={[styles.h1, { color: theme.ink }, rtl && styles.noTracking]}>{t.goingToMovies}</Text>}
+      {!cancelled && <Text style={[styles.ok, { color: theme.good }]}>{t.bookingConfirmed}</Text>}
+      {!cancelled && <Text style={[styles.h1, { color: theme.ink }, rtl && styles.noTracking]}>{t.goingToMovies}</Text>}
 
       <Panel style={{ marginTop: 16 }}>
         <Text style={[styles.kicker, { color: theme.accent }, rtl && styles.noTracking]}>{t.eTicket}</Text>
@@ -41,19 +42,25 @@ export default function TicketScreen() {
         <Line label={t.reference} value={b.reference} strong />
         <Line label={t.totalPaid} value={t.egp(b.price.total)} />
 
-        <View style={styles.qrs}>
-          {b.tickets.map((ticket) => (
-            <View key={ticket.id} style={styles.qrItem}>
-              {ticket.status === 'valid' ? (
-                <View style={styles.qrFrame}>
-                  <QRCode value={ticket.qr} size={132} />
+        {cancelled ? (
+          <Text style={[styles.void, { color: theme.accent }]}>{t.op.codesCancelled}</Text>
+        ) : (
+          <>
+            <View style={styles.qrs}>
+              {b.tickets.map((ticket) => (
+                <View key={ticket.id} style={styles.qrItem}>
+                  {ticket.status === 'valid' ? (
+                    <View style={styles.qrFrame}>
+                      <QRCode value={ticket.qr} size={132} />
+                    </View>
+                  ) : <HiddenCode status={ticket.status} />}
+                  <Text style={{ color: theme.ink, fontWeight: '800', marginTop: 6 }}>{t.seat(ticket.seat)}</Text>
                 </View>
-              ) : <HiddenCode status={ticket.status} />}
-              <Text style={{ color: theme.ink, fontWeight: '800', marginTop: 6 }}>{t.seat(ticket.seat)}</Text>
+              ))}
             </View>
-          ))}
-        </View>
-        <Text style={{ color: theme.muted, fontSize: 12, textAlign: 'center' }}>{t.showCodes}</Text>
+            <Text style={{ color: theme.muted, fontSize: 12, textAlign: 'center' }}>{t.showCodes}</Text>
+          </>
+        )}
       </Panel>
       <TicketResale booking={b} />
 
@@ -78,4 +85,5 @@ const styles = StyleSheet.create({
   qrs: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 16, marginVertical: 16 },
   qrItem: { alignItems: 'center' },
   qrFrame: { backgroundColor: '#fff', padding: 10, borderRadius: 12 },
+  void: { fontWeight: '700', textAlign: 'center', marginTop: 16, lineHeight: 21 },
 });

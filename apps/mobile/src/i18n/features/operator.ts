@@ -112,6 +112,8 @@ export const en = {
     newFormat: 'New format',
     /** On the ticket in the Tickets tab. */
     ticketBadge: { cancelled: 'Show cancelled', changed: 'Show changed' },
+    /** In place of a cancelled show's QR codes. */
+    codesCancelled: 'The show was cancelled, so these codes no longer work.',
   },
 };
 
@@ -219,5 +221,6 @@ export const ar: typeof en = {
     newTime: 'المعاد الجديد',
     newFormat: 'النوع الجديد',
     ticketBadge: { cancelled: 'العرض اتلغى', changed: 'العرض اتغيّر' },
+    codesCancelled: 'العرض اتلغى، فالأكواد دي مبقتش شغالة.',
   },
 };
