@@ -36,7 +36,7 @@ export const en = {
         },
         hold: {
           q: 'How long are my seats held?',
-          a: 'When you tap “Hold these seats”, we check that the seats are still free and hold those exact seats for 10 minutes while you check out. The countdown at checkout shows the time left. If it runs out, the seats are released and you can choose again. You can hold one set of seats at a time: holding new seats releases the old ones, and “Cancel and release seats” lets them go straight away.',
+          a: 'When you tap “Continue to checkout”, we check that the seats are still free and hold those exact seats for 10 minutes while you check out. The countdown at checkout shows the time left. If it runs out, the seats are released and you can choose again. You can hold one set of seats at a time: holding new seats releases the old ones, and “Cancel and release seats” lets them go straight away.',
         },
         taken: {
           q: 'What if someone takes my seats first?',
@@ -53,7 +53,7 @@ export const en = {
         },
         find: {
           q: 'Where do I find my tickets later?',
-          a: 'In the Tickets tab on the phone or browser you booked with. Tickets aren’t sent by email yet, so keep your booking reference somewhere safe. If you were signed in when you booked, the booking is saved to your account too. Can’t find a booking? Contact support with your booking reference and the email you booked with.',
+          a: 'In My Tickets on the phone or browser you booked with. Tickets aren’t sent by email yet, so keep your booking reference somewhere safe. If you were signed in when you booked, the booking is saved to your account too. Can’t find a booking? Contact support with your booking reference and the email you booked with.',
         },
       },
     },
@@ -79,7 +79,7 @@ export const en = {
       items: {
         use: {
           q: 'How do I use my ticket?',
-          a: 'Open your ticket from the Tickets tab and show the QR codes at the cinema entrance. Each seat has its own code, so if your group isn’t arriving together you can send a friend the code for their seat.',
+          a: 'Open your ticket from My Tickets and show the QR codes at the cinema entrance. Each seat has its own code, so if your group isn’t arriving together you can send a friend the code for their seat.',
         },
         reference: {
           q: 'Where is my booking reference?',
@@ -100,7 +100,7 @@ export const en = {
         },
         showChange: {
           q: 'What if the cinema changes or cancels my show?',
-          a: 'The change shows on your ticket in the Tickets tab: the new time or format, or that the show was cancelled. We can’t email or text you about changes yet, so check your ticket before you go. If the change doesn’t suit you, contact support with your booking reference and we’ll work it out with the cinema under its policy, whether that’s a refund or another show.',
+          a: 'The change shows on your ticket in My Tickets: the new time or format, or that the show was cancelled. We can’t email or text you about changes yet, so check your ticket before you go. If the change doesn’t suit you, contact support with your booking reference and we’ll work it out with the cinema under its policy, whether that’s a refund or another show.',
         },
       },
     },
@@ -166,7 +166,7 @@ export const ar: typeof en = {
         },
         hold: {
           q: 'الكراسي بتفضل محجوزة لي قد إيه؟',
-          a: 'لما تدوس «احجز الكراسي دي»، بنتأكد إن الكراسي لسه فاضية وبنحجزلك نفس الكراسي دي بالظبط لمدة ١٠ دقايق وإنت بتدفع. العداد في صفحة الدفع بيوريك الوقت الباقي. لو الوقت خلص، الكراسي بتتفك وتقدر تختار تاني. تقدر تحجز مجموعة كراسي واحدة بس في المرة: لو حجزت كراسي جديدة القديمة بتتفك، ولو دوست «إلغاء وفك حجز الكراسي» بتتفك على طول.',
+          a: 'لما تدوس «كمّل للدفع»، بنتأكد إن الكراسي لسه فاضية وبنحجزلك نفس الكراسي دي بالظبط لمدة ١٠ دقايق وإنت بتدفع. العداد في صفحة الدفع بيوريك الوقت الباقي. لو الوقت خلص، الكراسي بتتفك وتقدر تختار تاني. تقدر تحجز مجموعة كراسي واحدة بس في المرة: لو حجزت كراسي جديدة القديمة بتتفك، ولو دوست «إلغاء وفك حجز الكراسي» بتتفك على طول.',
         },
         taken: {
           q: 'لو حد حجز الكراسي قبلي؟',

@@ -11,7 +11,7 @@ export const en = {
   resaleHero: 'Plans changed? Pass your seat on.',
   resaleIntro: 'Tickets from other moviegoers, never above what they paid. You pay the ticket price plus a 5 EGP fee and get a new ticket in your name.',
   resaleMyListings: 'My listings',
-  resaleHowToSell: 'To sell, open a ticket you booked while signed in from the Tickets tab.',
+  resaleHowToSell: 'To sell, open a ticket you booked while signed in from My Tickets.',
   resaleSignInNote: 'Sign in to buy or sell resale tickets.',
   resaleGoSignIn: 'Sign in',
   resaleEmptyTitle: 'Nothing for resale right now',
@@ -23,7 +23,7 @@ export const en = {
   // Buying
   resaleBuyTitle: 'Buy a resale ticket',
   resaleChooseTickets: 'Which tickets?',
-  resaleNewTicketNote: 'The seller’s ticket is cancelled and you get a new ticket with its own code in your Tickets tab.',
+  resaleNewTicketNote: 'The seller’s ticket is cancelled and you get a new ticket with its own code in My Tickets.',
   resaleRefundNote: 'Refunds follow the cinema’s policy for whoever holds the ticket. Platform fees are non-refundable.',
   resaleSignInToBuy: 'Sign in to buy this ticket. Resale needs an account so the new ticket can be issued in your name.',
   resaleOwnListing: 'This is your listing, so you can’t buy it.',
@@ -74,7 +74,7 @@ export const en = {
   resaleNothingToSell: 'None of these tickets can be listed right now.',
 
   // My listings
-  resaleMineEmpty: 'You haven’t listed any tickets. Open a ticket from the Tickets tab to sell it.',
+  resaleMineEmpty: 'You haven’t listed any tickets. Open a ticket from My Tickets to sell it.',
   resaleStatus: { open: 'On sale', sold: 'Sold', withdrawn: 'Withdrawn', expired: 'Closed at showtime', closed: 'Closed' } as Record<ListingStatus, string>,
   resaleTicketState: {
     listed: 'For sale', reserved: 'Being bought', sold: 'Sold', withdrawn: 'Withdrawn', expired: 'Unsold', returned: 'Back with you', 'under-review': 'Under review',

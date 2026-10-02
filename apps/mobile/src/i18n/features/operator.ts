@@ -184,7 +184,7 @@ export const ar: typeof en = {
 
     correctTitle: 'تعديل العرض',
     startTime: 'معاد البداية',
-    startTimeHint: 'بنظام ٢٤ ساعة، في نفس اليوم.',
+    startTimeHint: 'بنظام 24 ساعة، في نفس اليوم.',
     format: 'نوع العرض',
     price: 'سعر التذكرة (جنيه)',
     priceHint: 'من غير رسوم المنصة (٥ جنيه). بيتطبق على الحجوزات الجديدة بس.',
@@ -211,7 +211,7 @@ export const ar: typeof en = {
     changeTime: (from, to) => `المعاد: من ${from} لـ ${to}`,
     changeFormat: (from, to) => `النوع: من ${from} لـ ${to}`,
     changePrice: (from, to) => `السعر: من ${from} لـ ${to}`,
-    affected: (n) => `${n} حجز اتأثر`,
+    affected: (n) => (n === 1 ? 'حجز واحد اتأثر' : n === 2 ? 'حجزين اتأثروا' : n <= 10 ? `${n} حجوزات اتأثرت` : `${n} حجز اتأثروا`),
     notNotified: 'لسه ماتبلغش',
     notifyNote: 'العملاء اللي اتأثروا بيشوفوا تنبيه على التذكرة. رسايل الإيميل والـSMS لسه مش متوصّلة.',
     notToday: 'تقدر تعدّل عروض النهارده بس.',
