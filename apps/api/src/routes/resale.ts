@@ -322,9 +322,13 @@ export async function resaleRoutes(app: FastifyInstance, { store, auth, payments
     const originals = ticketIds.map((id) => sellerBooking.tickets.find((t) => t.id === id)!);
     const replacements = originals.map((t) => ({ original: t, id: randomUUID(), qr: `YALLA:${reference}:${t.seat}` }));
     // From here on the cinema may move the tickets, so an interrupted purchase holds them for support rather
-    // than putting them back on sale. A payment so slow that its tickets went back on sale stops here.
-    if (!(await resale.startTransfer(saleId, paymentRef)))
+    // than putting them back on sale. A payment so slow that its tickets went back on sale stops here, and so
+    // does one for a show staff cancelled meanwhile: the seller keeps valid tickets for it.
+    const started = await resale.startTransfer(saleId, paymentRef);
+    if (started === 'lost')
       return untransferred('The payment took too long, so the tickets went back on sale', 'purchase-cancelled', 'This purchase took too long, so it was cancelled.');
+    if (started === 'show-cancelled')
+      return untransferred('The cinema cancelled the show during the purchase', 'show-cancelled', 'The cinema cancelled this show, so the purchase was cancelled.');
 
     let transfer: ConfirmResult;
     try {
@@ -357,6 +361,12 @@ export async function resaleRoutes(app: FastifyInstance, { store, auth, payments
         log.error({ err: e }, 'Resale: recording a transferred sale failed again');
         return 'failed' as const;
       });
+    // Cancelled after the cinema swapped the tickets: the seller's can't simply be valid again (they no longer
+    // scan if the show is reinstated), so like any unfinished transfer support settles them with the cinema.
+    if (completed === 'show-cancelled') {
+      return unreconciled('The cinema cancelled the show while the tickets were being transferred', 'show-cancelled',
+        'The cinema cancelled this show, so the purchase was cancelled.');
+    }
     if (completed !== 'completed') {
       return unreconciled(completed === 'lost' ? 'The purchase was given up while the cinema was transferring' : 'The transfer could not be recorded',
         'purchase-cancelled', 'This purchase couldn’t be completed.');

@@ -535,6 +535,8 @@ test('a transfer the cinema confirmed but that can’t be recorded is tried agai
   assert.equal(bought.statusCode, 201, bought.body);
   assert.equal((await s.statuses(s.tickets.id))[second.seat], 'transferred');
   assert.equal((await s.booking(bought.json().id)).tickets[0].status, 'valid');
+  // Locking the show against staff corrections leaves no correction behind.
+  assert.deepEqual((await db.query('SELECT showtime_id FROM showtime_overrides')).rows, []);
 
   // It keeps failing: the buyer is refunded and the seller's ticket stays blocked, so it can't be sold twice.
   const lasting = (await s.list(s.seller.headers, s.tickets.id, [first.id], 100)).json();
@@ -667,6 +669,100 @@ test('a seat is unique among tickets in use, and the schema can be applied again
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
+});
+
+/** Cinema staff correcting the show of the seller's booking in the operator portal (data/operator.ts). */
+async function staffFor(s: Awaited<ReturnType<typeof setup>>) {
+  const { showtime } = await s.booking(s.tickets.id);
+  const signIn = await s.app.inject({ method: 'POST', url: '/v1/auth/sign-in',
+    payload: { email: demoStaffEmail(showtime.cinema.id), password: DEMO_STAFF_PASSWORD } });
+  const headers = { authorization: `Bearer ${signIn.json().token}` };
+  const url = `/v1/operator/showtimes/${showtime.showtimeId}`;
+  return {
+    correct: async (payload: Record<string, unknown>) => {
+      const res = await s.app.inject({ method: 'PATCH', url, headers, payload });
+      assert.equal(res.statusCode, 200, res.body);
+    },
+    changes: async () => (await s.app.inject({ url, headers })).json().changes as { kind: string; affected: { reference: string }[] }[],
+  };
+}
+
+test('staff cancelling the show while the buyer pays: the buyer is refunded, the cinema isn’t asked and the seller keeps valid tickets', async () => {
+  const db = await createDb(undefined, 'memory://');
+  const pay = recordingPayments();
+  const transfers: string[] = [];
+  const s = await setup({ db, payments: pay.payments, cinema: cinemaWith({ async transfer({ reference }) { transfers.push(reference); return { ok: true, confirmation: 'T' }; } }) });
+  const staff = await staffFor(s);
+  pay.start(async () => {
+    await staff.correct({ cancelled: true });
+    return { ok: true, paymentRef: 'pay-1' };
+  });
+  const [first] = s.tickets.tickets;
+  const listing = (await s.list(s.seller.headers, s.tickets.id, [first.id], 100)).json();
+
+  const res = await s.buy(s.buyer.headers, listing.id, [first.id]);
+  assert.equal(res.statusCode, 409);
+  assert.equal(res.json().code, 'show-cancelled');
+  assert.deepEqual(pay.refunds, ['pay-1']);
+  assert.deepEqual(transfers, []);
+  assert.deepEqual(await saleOf(db, first.id), { status: 'refunded', payment_ref: 'pay-1' });
+  assert.equal((await s.statuses(s.tickets.id))[first.seat], 'valid');
+  assert.equal((await s.booking(s.tickets.id)).showChange.kind, 'cancelled');
+});
+
+test('staff cancelling the show while the cinema transfers: the buyer is refunded and the seller’s swapped tickets are held for support', async () => {
+  const db = await createDb(undefined, 'memory://');
+  const log = errorLog();
+  const pay = recordingPayments();
+  let staff!: Awaited<ReturnType<typeof staffFor>>;
+  const s = await setup({
+    db, payments: pay.payments, logger: log.logger,
+    cinema: cinemaWith({
+      async transfer({ reference }) {
+        await staff.correct({ cancelled: true });
+        return { ok: true, confirmation: `CIN-${reference}` };
+      },
+    }),
+  });
+  staff = await staffFor(s);
+  pay.start(async () => ({ ok: true, paymentRef: 'pay-1' }));
+  const [first] = s.tickets.tickets;
+  const listing = (await s.list(s.seller.headers, s.tickets.id, [first.id], 100)).json();
+
+  const res = await s.buy(s.buyer.headers, listing.id, [first.id]);
+  assert.equal(res.statusCode, 409);
+  assert.equal(res.json().code, 'show-cancelled');
+  assert.deepEqual(pay.refunds, ['pay-1']);
+  assert.deepEqual(await saleOf(db, first.id), { status: 'needs-reconciliation', payment_ref: 'pay-1' });
+  assert.ok(log.errors.some((e) => /settle them with the cinema/.test(e.msg)));
+  assert.equal((await s.statuses(s.tickets.id))[first.seat], 'under-review');
+  // The seller still holds the booking, and is told the show was cancelled; nobody else does.
+  assert.equal((await s.booking(s.tickets.id)).showChange.kind, 'cancelled');
+  const [cancellation] = await staff.changes();
+  assert.deepEqual(cancellation.affected.map((a) => a.reference), [(await s.booking(s.tickets.id)).reference]);
+});
+
+test('staff moving the show while the cinema transfers: the buyer’s booking is recorded against the change, so they are told', async () => {
+  let staff!: Awaited<ReturnType<typeof staffFor>>;
+  const s = await setup({
+    cinema: cinemaWith({
+      async transfer({ reference }) {
+        await staff.correct({ time: '21:10' });
+        return { ok: true, confirmation: `CIN-${reference}` };
+      },
+    }),
+  });
+  staff = await staffFor(s);
+  const [first] = s.tickets.tickets;
+  const listing = (await s.list(s.seller.headers, s.tickets.id, [first.id], 100)).json();
+
+  const res = await s.buy(s.buyer.headers, listing.id, [first.id]);
+  assert.equal(res.statusCode, 201, res.body);
+  const bought = await s.booking(res.json().id);
+  assert.deepEqual({ kind: bought.showChange.kind, localTime: bought.showChange.localTime, changed: bought.showChange.changed },
+    { kind: 'changed', localTime: '21:10', changed: ['time'] });
+  const [moved] = await staff.changes();
+  assert.ok(moved.affected.some((a) => a.reference === bought.reference));
 });
 
 test('resale follows the cinema’s corrections: a moved show sells at its new time, a cancelled one is off sale', async () => {

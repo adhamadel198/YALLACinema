@@ -250,26 +250,41 @@ export class Resale {
   /**
    * The buyer has paid and the cinema is about to be asked to transfer the tickets. From now on it may have moved
    * them, so if the purchase is interrupted releaseStale blocks them for support instead of putting them back on
-   * sale. False if the payment took so long that releaseStale already put them back on sale.
+   * sale. Not started ('lost') if the payment took so long that releaseStale already put them back on sale, or
+   * ('show-cancelled') if cinema staff cancelled the show while the buyer was paying.
    */
-  async startTransfer(saleId: string, paymentRef: string): Promise<boolean> {
-    const { rows } = await this.db.query(
-      `UPDATE resale_sales SET status = 'transferring', payment_ref = $2, updated_at = $3 WHERE id = $1 AND status = 'reserved' RETURNING id`,
-      [saleId, paymentRef, this.now()]);
-    return rows.length > 0;
+  async startTransfer(saleId: string, paymentRef: string): Promise<'transferring' | 'lost' | 'show-cancelled'> {
+    return this.db.transaction(async (tx) => {
+      const { rows: [sale] } = await tx.query<{ status: SaleStatus; cancelled: boolean | null }>(
+        `SELECT s.status, o.cancelled FROM resale_sales s JOIN resale_listings l ON l.id = s.listing_id
+           LEFT JOIN showtime_overrides o ON o.showtime_id = l.showtime_id WHERE s.id = $1 FOR UPDATE OF s`, [saleId]);
+      if (sale?.status !== 'reserved') return 'lost';
+      if (sale.cancelled) return 'show-cancelled';
+      await tx.query(`UPDATE resale_sales SET status = 'transferring', payment_ref = $2, updated_at = $3 WHERE id = $1`, [saleId, paymentRef, this.now()]);
+      return 'transferring';
+    });
   }
 
   /**
    * The buyer paid and the cinema transferred the tickets: the seller's tickets become 'transferred', the buyer
-   * gets a booking with the replacements, and the seller's payout is recorded as pending. 'lost' (and nothing
-   * changes) if the sale can no longer be completed, e.g. releaseStale gave up on it meanwhile.
+   * gets a booking with the replacements, and the seller's payout is recorded as pending. Nothing changes if the
+   * sale can no longer be completed ('lost', e.g. releaseStale gave up on it meanwhile), or if cinema staff
+   * cancelled the show during the purchase ('show-cancelled').
+   *
+   * `booking` has the show as the buyer saw it. If staff moved it or changed its format since, the booking is
+   * recorded against that change, like the show's other bookings, so the buyer is told (BRD 9).
    */
-  async complete(saleId: string, paymentRef: string, booking: Booking, replacementFor: Map<string, string>): Promise<'completed' | 'lost'> {
+  async complete(saleId: string, paymentRef: string, booking: Booking, replacementFor: Map<string, string>): Promise<'completed' | 'lost' | 'show-cancelled'> {
     try {
       return await this.db.transaction(async (tx) => {
         // Locked, so releaseStale can't give up on the sale while it completes, or complete one it gave up on.
         const { rows: [sale] } = await tx.query<{ status: SaleStatus }>('SELECT status FROM resale_sales WHERE id = $1 FOR UPDATE', [saleId]);
         if (sale?.status !== 'transferring') throw new Lost();
+        // Takes turns with staff correcting the show: a correction either commits first and is seen here, or waits
+        // and then finds the buyer's booking among the show's bookings.
+        if ((await lockShow(tx, booking.showtime)).cancelled) return 'show-cancelled' as const;
+        const { rows: [change] } = await tx.query<{ id: string; after: { startsAt: string; format: string } }>(
+          'SELECT id, after FROM showtime_changes WHERE showtime_id = $1 ORDER BY seq DESC LIMIT 1', [booking.showtime.showtimeId]);
         const { rows } = await tx.query<{ listing_id: string; ticket_id: string }>(
           `SELECT listing_id, ticket_id FROM resale_listing_tickets WHERE sale_id = $1 AND state = 'reserved'`, [saleId]);
         if (rows.length !== replacementFor.size || !rows.every((r) => replacementFor.has(r.ticket_id))) throw new Lost();
@@ -278,6 +293,8 @@ export class Resale {
         const moved = await tx.query(`UPDATE tickets SET status = 'transferred' WHERE id = ANY($1) AND status = 'listed' RETURNING id`, [originals]);
         if (moved.rows.length !== originals.length) throw new Lost();
         await insertBooking(tx, booking);
+        if (change && (change.after.startsAt !== booking.showtime.startsAt || change.after.format !== booking.showtime.format))
+          await tx.query('INSERT INTO showtime_change_bookings (change_id, booking_id) VALUES ($1, $2)', [change.id, booking.id]);
         for (const original of originals)
           await tx.query(`UPDATE resale_listing_tickets SET state = 'sold', replacement_ticket_id = $3 WHERE sale_id = $1 AND ticket_id = $2`,
             [saleId, original, replacementFor.get(original)]);
@@ -407,6 +424,25 @@ export class Resale {
       [listingId, this.now()],
     );
   }
+}
+
+/**
+ * Locks the show's row in showtime_overrides, as Corrections.correct (data/operator.ts) does before it records a
+ * change and lists the show's bookings, and says whether staff cancelled the show. A show staff never corrected
+ * has no row, so one is inserted to lock and removed again: a correction inserting it meanwhile waits for this
+ * transaction to finish all the same.
+ */
+async function lockShow(q: Queryable, show: ShowtimeSnapshot): Promise<{ cancelled: boolean }> {
+  // A correction can delete the row (the show set back to its listing) while this waits for it: lock again.
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const placeholder = await q.query(
+      'INSERT INTO showtime_overrides (showtime_id, cinema_id, day) VALUES ($1, $2, $3) ON CONFLICT (showtime_id) DO NOTHING RETURNING showtime_id',
+      [show.showtimeId, show.cinemaId, show.startsAt.slice(0, 10)]);
+    const { rows: [row] } = await q.query<{ cancelled: boolean }>('SELECT cancelled FROM showtime_overrides WHERE showtime_id = $1 FOR SHARE', [show.showtimeId]);
+    if (placeholder.rows.length) await q.query('DELETE FROM showtime_overrides WHERE showtime_id = $1', [show.showtimeId]);
+    if (row) return row;
+  }
+  throw new Error(`Showtime ${show.showtimeId} kept changing while a resale purchase completed`);
 }
 
 /** Same columns as Store.saveBooking; a resale buyer's booking has no hold to turn into tickets. */
