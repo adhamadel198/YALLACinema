@@ -1,6 +1,7 @@
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { leaveSignIn, safeNext, signUpHref } from '../auth/routes';
-import { AuthPage, SignInForm, TicketsCard } from '../components/AccountForm';
+import { AuthPage, SignInForm } from '../components/AccountForm';
+import { TicketsCard } from '../components/account/parts';
 import { useI18n } from '../i18n';
 
 /**
@@ -21,7 +22,7 @@ export default function SignIn() {
         onSignedIn={() => leaveSignIn(next)}
         onCreateAccount={(email) => router.replace(signUpHref(next, email))}
       />
-      {next ? null : <TicketsCard />}
+      {next ? null : <TicketsCard style={{ width: '100%', maxWidth: 480, alignSelf: 'center', marginTop: 15 }} />}
     </AuthPage>
   );
 }

@@ -11,6 +11,7 @@ import { useType } from '../../typography';
 import { CheckRow } from '../form';
 import { Button, Panel, Spinner } from '../ui';
 import { PanelHead, showWhen, Subtle, VerifyBox, VerifyLine } from './parts';
+import { dotLine, unbroken } from '../../format';
 
 /** Bookings of this account with a ticket that can still be listed, soonest show first. */
 export function sellableBookings(bookings: Booking[], account: Account) {
@@ -26,7 +27,7 @@ export function sellableBookings(bookings: Booking[], account: Account) {
  */
 export function OwnersPanel({ account, bookings, payout }: { account: Account | null; bookings?: Booking[]; payout?: PayoutMethod | null }) {
   const { t } = useI18n();
-  const { type } = useType();
+  const { type, rtl } = useType();
   const eligible = account && bookings ? sellableBookings(bookings, account).slice(0, 3) : [];
   return (
     <Panel>
@@ -56,8 +57,8 @@ export function OwnersPanel({ account, bookings, payout }: { account: Account | 
             {eligible.map((b) => {
               const valid = b.tickets.filter((x) => x.status === 'valid').length;
               return (
-                <CheckRow key={b.id} hideBox title={t.resaleUi.eligibleBooking(b.reference)}
-                  sub={`${b.showtime.movie.title} · ${b.showtime.cinema.name} · ${showWhen(showStartsAt(b), t)}\n${t.resaleUi.sellableCount(valid, b.tickets.length)}`}
+                <CheckRow key={b.id} hideBox title={t.resaleUi.eligibleBooking(unbroken(b.reference))}
+                  sub={`${dotLine(rtl, b.showtime.movie.title, b.showtime.cinema.name, showWhen(showStartsAt(b), t))}\n${rtl ? '\u200F' : ''}${t.resaleUi.sellableCount(valid, b.tickets.length)}`}
                   trailing={<Button title={t.resaleSellTitle} kind="soft" size="small" inline
                     onPress={() => router.push({ pathname: '/resale/sell/[bookingId]', params: { bookingId: b.id } })} />} />
               );

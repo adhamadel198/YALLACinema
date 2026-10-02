@@ -58,7 +58,7 @@ export default function Resale() {
       <H2>{t.resaleUi.marketTitle}</H2>
       <Text style={[type.body, { color: colors.muted, marginTop: 3, marginBottom: 15 }]}>{t.resaleUi.marketLead}</Text>
       {areas.length ? (
-        <Chips variant="tab" scroll label={t.resaleUi.areaFilter} value={area} onChange={setArea} style={{ marginBottom: 13, flexGrow: 0 }}
+        <Chips variant="tab" scroll={wide} label={t.resaleUi.areaFilter} value={area} onChange={setArea} style={{ marginBottom: 13, flexGrow: 0 }}
           options={[{ value: ALL, label: t.resaleUi.allTickets }, ...areas.map((a) => ({ value: a, label: t.areas[a] ?? a }))]} />
       ) : null}
       {listings.error && !listings.data ? (
@@ -69,7 +69,8 @@ export default function Resale() {
       ) : !listings.data ? <Spinner /> : shown.length ? (
         <View style={{ gap: 10 }}>
           {shown.map((item) => (
-            <MarketCard key={item.id} item={item} onOpen={() => router.push({ pathname: '/resale/[id]', params: { id: item.id } })} />
+            <MarketCard key={item.id} item={item}
+              onOpen={() => (item.mine ? router.push('/resale/mine') : router.push({ pathname: '/resale/[id]', params: { id: item.id } }))} />
           ))}
         </View>
       ) : (

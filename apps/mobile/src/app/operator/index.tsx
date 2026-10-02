@@ -1,6 +1,6 @@
 import { router, Stack, useFocusEffect } from 'expo-router';
 import { useCallback, useRef, useState, type ReactNode } from 'react';
-import { ScrollView, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 import type { Account } from '../../api/auth';
 import { ApiError } from '../../api/client';
 import { operatorApi, type StaffBooking, type StaffDay, type StaffShow } from '../../api/operator';
@@ -77,11 +77,12 @@ function Dashboard({ account }: { account: Account }) {
           {extra}
         </>
       ) : (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ alignItems: 'center', gap: 4 }}>
+        // Wraps rather than scrolls on phones, so "Sign out" is never cut off (the Arabic labels are wider).
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 4 }}>
           {days}
           <View style={{ width: 1, height: 22, backgroundColor: colors.line, marginHorizontal: 6 }} />
           {extra}
-        </ScrollView>
+        </View>
       )}
     </View>
   );

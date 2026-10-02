@@ -90,7 +90,7 @@ export const ar: typeof en = {
   pickCinemaTime: 'اختار السينما والمعاد',
   resultsLine: (cinemas, seats, arrangement) =>
     dotted([cinemas === 1 ? 'سينما واحدة مناسبة' : cinemas === 2 ? 'سينمتين مناسبين' : `${cinemas} سينمات مناسبة`, arSeats(seats), arrangement]),
-  showPrice: (price, format) => dotted([`من ${price} + ٥ جنيه رسوم للتذكرة`, format]),
+  showPrice: (price, format) => dotted([`من ${price} + 5 جنيه رسوم للتذكرة`, format]),
   findSeats: 'اختار الكراسي',
   findSeatsAt: (cinema, time) => `اختار الكراسي في ${cinema}، ${time}`,
   noExactTitle: 'مفيش نتايج مطابقة للبحث ده',
@@ -111,7 +111,7 @@ export const ar: typeof en = {
   refreshShowtimes: 'حدّث المواعيد المناسبة',
   bookingSummary: 'ملخص الحجز',
   platformFee: 'رسوم المنصة',
-  feeTimesTickets: '٥ جنيه × التذاكر',
+  feeTimesTickets: '5 جنيه × التذاكر',
   chooseOnMap: 'اختار الكراسي من الخريطة',
   heldNote: 'بنحجزلك الكراسي المحددة بس وقت الدفع، لحد ما السينما تأكدها.',
   continueCheckout: 'كمّل للدفع',

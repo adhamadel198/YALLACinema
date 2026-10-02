@@ -23,7 +23,7 @@ export function MarketCard({ item, onOpen }: { item: MarketListing; onOpen: () =
   const seats = describeSeats(item.tickets.map((x) => x.seat));
   return (
     <Pressable onPress={onOpen} accessibilityRole="button"
-      accessibilityLabel={`${s.movie.title}, ${s.cinema.name}, ${t.seatsList(seats)}, ${t.resaleUi.buyTicket} ${t.egp(item.price)}`}
+      accessibilityLabel={`${s.movie.title}, ${s.cinema.name}, ${t.seatsList(seats)}, ${item.mine ? t.resaleUi.manageListings : t.resaleUi.buyTicket} ${t.egp(item.price)}`}
       style={(state: Hoverable) => [
         { backgroundColor: colors.panel, borderWidth: 1, borderColor: state.hovered ? '#5d4c2c' : colors.line, borderRadius: 18, padding: 17, gap: 10 },
         shadows.panel,
@@ -42,7 +42,8 @@ export function MarketCard({ item, onOpen }: { item: MarketListing; onOpen: () =
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9, justifyContent: wide ? undefined : 'space-between' }}>
             <Text style={[font(700), { color: colors.ink, fontSize: 15, lineHeight: 23 }]}>{t.egp(item.price)}</Text>
-            <BuyPill lifted={!!(state.hovered || state.pressed)} label={t.resaleUi.buyTicket} />
+            {/* The seller's own listing opens their listings instead of the buy sheet. */}
+            <BuyPill lifted={!!(state.hovered || state.pressed)} label={item.mine ? t.resaleUi.manageListings : t.resaleUi.buyTicket} soft={item.mine} />
           </View>
         </>
       )}
@@ -51,8 +52,15 @@ export function MarketCard({ item, onOpen }: { item: MarketListing; onOpen: () =
 }
 
 /** The small gold "Buy ticket" button, drawn inside the pressable card. */
-function BuyPill({ label, lifted }: { label: string; lifted: boolean }) {
+function BuyPill({ label, lifted, soft }: { label: string; lifted: boolean; soft?: boolean }) {
   const { type } = useType();
+  if (soft) {
+    return (
+      <View aria-hidden style={{ borderWidth: 1, borderColor: colors.line, borderRadius: 12, paddingVertical: 9, paddingHorizontal: 12, minHeight: 38, justifyContent: 'center' }}>
+        <Text style={[type.buttonSmall, { color: colors.goldText }]}>{label}</Text>
+      </View>
+    );
+  }
   return (
     <View aria-hidden style={[{ backgroundColor: colors.gold, borderRadius: 12, paddingVertical: 9, paddingHorizontal: 12, minHeight: 38, justifyContent: 'center' },
       { boxShadow: lifted ? '0 6px 0 #89672f' : '0 4px 0 #89672f', transform: [{ translateY: lifted ? -2 : 0 }] } as ViewStyle]}>

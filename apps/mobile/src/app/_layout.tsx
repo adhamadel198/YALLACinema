@@ -7,6 +7,7 @@ import { useEffect } from 'react';
 import { View } from 'react-native';
 import { AuthProvider } from '../auth';
 import { SiteHeader } from '../components/shell/Header';
+import { StackBottomNav } from '../components/shell/TabBar';
 import { useAppFonts } from '../fonts';
 import { LanguageProvider, useI18n } from '../i18n';
 import { colors } from '../theme';
@@ -65,6 +66,7 @@ function AppStack() {
             <Stack.Screen name="ticket/[id]" options={{ title: t.yourTicket }} />
             {/* Newer screens set their own title with <Stack.Screen options> inside the screen. */}
           </Stack>
+          <StackBottomNav />
         </View>
       </ThemeProvider>
     </LocaleDirContext.Provider>

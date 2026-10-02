@@ -140,8 +140,8 @@ export function Crumbs({ items, style }: { items: Crumb[]; style?: StyleProp<Vie
 }
 
 /**
- * The booking steps "① Seats — ② Checkout — ③ Ticket" (`.progress`). Earlier steps show ✓; the current step is
- * gold. Example: `<Steps step={2} />`
+ * The booking steps "① Seats — ② Checkout — ③ Ticket" (`.progress`). Steps up to the current one are gold, as on
+ * the live pages. Example: `<Steps step={2} />`
  */
 export function Steps({ step, style }: { step: 1 | 2 | 3; style?: StyleProp<ViewStyle> }) {
   const { t } = useI18n();
@@ -156,13 +156,13 @@ export function Steps({ step, style }: { step: 1 | 2 | 3; style?: StyleProp<View
         const on = state !== 'next';
         return (
           <Fragment key={name}>
-            {i > 0 ? <View aria-hidden style={{ height: 1, width: narrow ? 13 : 32, backgroundColor: on ? colors.gold : colors.line }} /> : null}
+            {i > 0 ? <View aria-hidden style={{ height: 1, width: narrow ? 13 : 32, backgroundColor: STEP_LINE }} /> : null}
             <View role="listitem" aria-current={state === 'current' ? 'step' : undefined} accessibilityLabel={t.shell.stepState(n, name, state)}
               style={styles.step}>
-              <View style={[styles.dot, { backgroundColor: on ? colors.gold : colors.tagBg }]}>
-                <Text style={[font(800), { color: on ? colors.onGold : colors.muted, fontSize: 12 }]}>{state === 'done' ? '✓' : n}</Text>
+              <View style={[styles.dot, { backgroundColor: on ? colors.gold : STEP_DOT }]}>
+                <Text style={[font(800), { color: on ? '#ffffff' : STEP_TEXT, fontSize: 12 }]}>{n}</Text>
               </View>
-              <Text style={[font(700), { color: state === 'current' ? colors.goldText : on ? colors.ink : colors.muted, fontSize: narrow ? 10 : 12 }]}>{name}</Text>
+              <Text style={[font(700), { color: on ? colors.goldText : STEP_TEXT, fontSize: narrow ? 10 : 12 }]}>{name}</Text>
             </View>
           </Fragment>
         );
@@ -170,6 +170,12 @@ export function Steps({ step, style }: { step: 1 | 2 | 3; style?: StyleProp<View
     </View>
   );
 }
+
+// The live `.progress` colours: steps reached are gold with a white number, later ones a cream dot with greyed
+// text, joined by light hairlines.
+const STEP_DOT = '#eee8e0';
+const STEP_TEXT = '#948c9f';
+const STEP_LINE = '#e5dbcf';
 
 const styles = StyleSheet.create({
   steps: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', marginTop: 6, marginBottom: 22 },

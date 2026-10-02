@@ -31,11 +31,7 @@ export const en = {
   // Sign in and sign up
   signInLead: 'Sign in to see your bookings and save your details. Guest checkout is always available.',
   passwordPlaceholder: 'Your password',
-  ticketsKicker: 'Your tickets',
-  ticketsTitle: 'Need to pass a ticket on?',
-  ticketsBody: 'List eligible, unused YALLA tickets for resale. A signed-in account and payout details are required.',
-  ticketsButton: 'Open ticket resale',
-  myListings: 'My listings',
+  newPasswordPlaceholder: 'Choose a password',
 };
 
 export const ar: typeof en = {
@@ -62,9 +58,5 @@ export const ar: typeof en = {
 
   signInLead: 'سجّل دخول عشان تشوف حجوزاتك وتحفظ بياناتك. والحجز كضيف متاح دايمًا.',
   passwordPlaceholder: 'كلمة السر بتاعتك',
-  ticketsKicker: 'تذاكرك',
-  ticketsTitle: 'محتاج تدّي تذكرتك لحد تاني؟',
-  ticketsBody: 'اعرض تذاكر YALLA اللي لسه ما استخدمتهاش للبيع. محتاج تكون مسجّل دخول وتضيف بيانات استلام الفلوس.',
-  ticketsButton: 'افتح إعادة البيع',
-  myListings: 'إعلاناتي',
+  newPasswordPlaceholder: 'اختار كلمة سر',
 };

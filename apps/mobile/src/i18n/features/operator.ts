@@ -166,7 +166,8 @@ export const ar: typeof en = {
     listedAs: (time, format, price) => `حسب جدول السينما: ${time} · ${format} · ${price}`,
     correctListing: 'تعديل العرض',
     viewShow: 'تفاصيل العرض',
-    showTotals: (bookings, tickets, revenue) => `${bookings} حجز · ${tickets} تذكرة · ${revenue}`,
+    showTotals: (bookings, tickets, revenue) =>
+      `${bookings === 1 ? 'حجز واحد' : bookings === 2 ? 'حجزين' : bookings <= 10 ? `${bookings} حجوزات` : `${bookings} حجز`} · ${tickets === 1 ? 'تذكرة واحدة' : tickets === 2 ? 'تذكرتين' : tickets <= 10 ? `${tickets} تذاكر` : `${tickets} تذكرة`} · ${revenue}`,
     colReference: 'رقم الحجز',
     colName: 'الاسم',
     colSeats: 'الكراسي',

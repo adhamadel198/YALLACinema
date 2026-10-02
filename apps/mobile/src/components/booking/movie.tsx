@@ -25,9 +25,10 @@ export function MovieHero({ movie }: { movie: Pick<Movie, 'poster' | 'audienceSc
   const glow = `radial-gradient(circle at ${rtl ? 28 : 72}% 32%, #d7b96f, #816534 32%, #292319 68%, #11100e)`;
   return (
     // The art is drawn left to right with explicit sides (like Poster), so it mirrors the same way on web and native.
-    <View style={[styles.hero, backgroundImage(glow), { alignItems: rtl ? 'flex-end' : 'flex-start' }]}>
+    <View style={[styles.hero, backgroundImage(glow)]}>
       <Text aria-hidden style={[styles.glyph, phone ? styles.glyphPhone : null, rtl ? { left: phone ? '4%' : '12%' } : { right: phone ? '4%' : '12%' }]}>{movie.poster.symbol}</Text>
-      <Badge label={t.booking.ratingBadge(movie.audienceScore.toFixed(1))} />
+      {/* Opposite corner to the symbol: bottom left, bottom right in Arabic (Badge pins its own alignSelf). */}
+      <Badge label={t.booking.ratingBadge(movie.audienceScore.toFixed(1))} style={{ alignSelf: rtl ? 'flex-end' : 'flex-start' }} />
     </View>
   );
 }

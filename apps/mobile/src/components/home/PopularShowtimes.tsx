@@ -106,7 +106,8 @@ function ShowCard({ group, movie, count, arrangement, near }: {
   );
   const tags = (
     <View style={[styles.tags, homeWide && { flex: 1, flexBasis: 0 }]}>
-      <Tag label={show.format} />
+      {/* The cinema line already names its hall format ("Maadi · Standard · Dolby sound"); say it once. */}
+      {group.cinema.detail.includes(show.format) ? null : <Tag label={show.format} />}
       <Tag label={movie.language} />
     </View>
   );

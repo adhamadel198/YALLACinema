@@ -4,9 +4,6 @@
 
 export const en = {
   // Profile tab, signed out: the live account.html sign-in panel.
-  signInLead: 'Sign in to see your bookings and save your details. Guest checkout is always available.',
-  emailPlaceholder: 'you@example.com',
-  passwordPlaceholder: 'Your password',
 
   // Profile tab, signed in.
   profileKicker: 'Your account',
@@ -57,9 +54,6 @@ export const en = {
 };
 
 export const ar: typeof en = {
-  signInLead: 'سجّل دخول عشان تشوف حجوزاتك وتحفظ بياناتك. والحجز كضيف متاح دايمًا.',
-  emailPlaceholder: 'you@example.com',
-  passwordPlaceholder: 'كلمة السر بتاعتك',
 
   profileKicker: 'حسابك',
 

@@ -29,6 +29,14 @@ function presetLinks(preset: FooterPreset, t: Strings, supportRef?: string): Foo
   }
 }
 
+function copyFor(preset: FooterPreset, t: Strings): string {
+  if (preset === 'operator') return t.shell.partnerPortal;
+  return SHORT_COPY.includes(preset) ? t.shell.footerCopyShort : t.shell.footerCopy;
+}
+
+/** The live seats, checkout, ticket and account pages leave "Cairo, Egypt" out of the footer. */
+const SHORT_COPY: FooterPreset[] = ['seats', 'checkout', 'ticket', 'account'];
+
 /**
  * The site footer: "© 2026 YALLA Cinema · Cairo, Egypt" and the page's links. Web only (like the live site);
  * `Page` adds it for you. `home` uses the home page's gold links and wider column; `links` overrides the preset;
@@ -38,7 +46,7 @@ export function SiteFooter({ preset = 'default', links, home, supportRef, native
   preset?: FooterPreset; links?: FooterLink[]; home?: boolean; supportRef?: string; native?: boolean;
 }) {
   const { t } = useI18n();
-  const { font } = useType();
+  const { font, rtl } = useType();
   const l = useLayout();
   if (Platform.OS !== 'web' && !native) return null;
   const items = links ?? presetLinks(preset, t, supportRef);
@@ -48,7 +56,8 @@ export function SiteFooter({ preset = 'default', links, home, supportRef, native
   return (
     <View role="contentinfo" style={styles.footer}>
       <View style={[styles.inner, { maxWidth: (home ? layout.homeMaxWidth : layout.maxWidth) + 2 * gutter, paddingHorizontal: gutter }, l.narrow && styles.stacked]}>
-        <Text style={text}>{preset === 'operator' ? t.shell.partnerPortal : t.shell.footerCopy}</Text>
+        {/* In Arabic the line is laid out right to left even though it starts with the Latin brand name. */}
+        <Text style={[text, rtl && { writingDirection: 'rtl' }]}>{copyFor(preset, t)}</Text>
         <View role="navigation" aria-label={t.shell.footerLinks} style={[styles.links, { gap: gold ? 0 : 18 }]}>
           {items.map((link, i) => (
             <Fragment key={link.label}>

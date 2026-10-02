@@ -18,6 +18,8 @@ export const en = {
 
   // Footer
   footerCopy: '© 2026 YALLA Cinema · Cairo, Egypt',
+  /** The booking and account pages' shorter line, as on the live seats, checkout, ticket and account pages. */
+  footerCopyShort: '© 2026 YALLA Cinema',
   footerLinks: 'Site links',
   helpSupport: 'Help & support',
   ticketResale: 'Ticket resale',
@@ -73,6 +75,7 @@ export const ar: typeof en = {
   back: 'رجوع',
 
   footerCopy: '© 2026 YALLA Cinema · القاهرة، مصر',
+  footerCopyShort: '© 2026 YALLA Cinema',
   footerLinks: 'روابط الموقع',
   helpSupport: 'المساعدة والدعم',
   ticketResale: 'إعادة بيع التذاكر',

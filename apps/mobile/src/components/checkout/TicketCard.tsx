@@ -55,7 +55,8 @@ export function TicketCard({ booking: b, style }: { booking: Booking; style?: Vi
   } else {
     codes = (
       <>
-        <View style={styles.codes}>{b.tickets.map((ticket) => <SeatCode key={ticket.id} ticket={ticket} />)}</View>
+        {/* In seat order (A9 before A10), like the seats row. */}
+        <View style={styles.codes}>{[...b.tickets].sort((x, y) => x.seat.localeCompare(y.seat, 'en', { numeric: true })).map((ticket) => <SeatCode key={ticket.id} ticket={ticket} />)}</View>
         <Text style={[type.micro, { textAlign: 'center' }]}>{t.showCodes}</Text>
       </>
     );

@@ -17,5 +17,16 @@ export const mmss = (ms: number) => `${Math.floor(ms / 60000)}:${pad(Math.floor(
  */
 export function clock(time: string, t: Strings) {
   const [h, m] = (time.length > 5 ? time.slice(11, 16) : time).split(':').map(Number);
-  return `${h % 12 || 12}:${pad(m)} ${h < 12 ? t.shell.am : t.shell.pm}`;
+  // A no-break space keeps "PM" on the same line as the time.
+  return `${h % 12 || 12}:${pad(m)}\u00A0${h < 12 ? t.shell.am : t.shell.pm}`;
 }
+
+/**
+ * "The Last Light · VOX Cinemas · Mall of Egypt · Fri 2 Oct": each part isolated so Latin names keep their own
+ * direction, and in Arabic the line starts right to left even when its first part is a Latin title.
+ */
+export const dotLine = (rtl: boolean, ...parts: (string | null | undefined | false)[]) =>
+  (rtl ? '\u200F' : '') + parts.filter(Boolean).map((p) => `\u2068${p}\u2069`).join(' · ');
+
+/** A booking reference that never breaks at its hyphen ("YL-4CQN54"). */
+export const unbroken = (s: string) => s.replace(/-/g, '\u2011');

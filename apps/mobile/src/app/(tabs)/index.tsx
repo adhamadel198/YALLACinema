@@ -47,20 +47,22 @@ export default function Discovery() {
   const activeGenre = genres.includes(genre) ? genre : '';
   const term = query.trim().toLocaleLowerCase();
   const visible = list.filter((m) => (!activeGenre || m.genre === activeGenre) && (!term || m.title.toLocaleLowerCase().includes(term)));
-  // Popular showtimes follow the first film on screen (narrowed by search or genre), else the first film.
-  const featured = visible[0] ?? list[0];
+  // Popular showtimes follow the first film on screen (narrowed by search or genre), else the first film; none while
+  // a search matches nothing, so they never show a film the search left out.
+  const featured = visible[0] ?? (term ? undefined : list[0]);
 
   const scrollTo = (section: Section) => scroll.current?.scrollTo({ y: offsets.current[section], animated: true });
 
-  const openMovie = (m: Movie) => router.push({
+  // `showtimes`: a search hands off like the live search page, straight to the cinemas and times.
+  const openMovie = (m: Movie, showtimes = false) => router.push({
     pathname: '/movie/[id]',
-    params: { id: m.id, count: String(count), arrangement, ...(area ? { area } : {}) },
+    params: { id: m.id, count: String(count), arrangement, ...(area ? { area } : {}), ...(showtimes ? { focus: 'showtimes' } : {}) },
   });
 
   // "Find matching shows": one film matches → open it; no text → today's showtimes; otherwise the filtered grid.
   const submit = () => {
     if (!term) scrollTo('shows');
-    else if (visible.length === 1) openMovie(visible[0]);
+    else if (visible.length === 1) openMovie(visible[0], true);
     else scrollTo('movies');
   };
 
@@ -92,7 +94,7 @@ export default function Discovery() {
           <>
             <Chips scroll label={t.home.genreLabel} value={activeGenre} onChange={setGenre} style={{ marginBottom: 18 }}
               options={[{ value: '', label: t.home.allFilms }, ...genres.map((g) => ({ value: g, label: g }))]} />
-            <MovieGrid movies={visible} onOpen={openMovie} />
+            <MovieGrid movies={visible} onOpen={(m) => openMovie(m)} />
             {visible.length === 0 ? <Text role="status" style={[type.body, { color: colors.muted }]}>{t.home.noMovies}</Text> : null}
           </>
         )}

@@ -101,6 +101,7 @@ export function TicketResale({ booking }: { booking: Booking }) {
   const { t } = useI18n();
   const { type, font } = useType();
   const { account, ready } = useAuth();
+  const { narrow } = useLayout();
   const count = (status: TicketStatus) => booking.tickets.filter((x) => x.status === status).length;
   const listed = count('listed');
   const sold = count('transferred');
@@ -111,11 +112,11 @@ export function TicketResale({ booking }: { booking: Booking }) {
   if (!booking.accountId) {
     return canSell ? <Text style={[type.caption, { textAlign: 'center' }]}>{t.resaleGuestBooking}</Text> : null;
   }
-  if (!account) return canSell || listed ? <SignInPrompt text={t.resaleSignInToSell} /> : null;
+  if (!account) return canSell || listed ? <SignInPrompt text={t.resaleSignInToSell} style={narrow ? null : TICKET_PAD} /> : null;
   if (account.id !== booking.accountId || (!canSell && !listed && !sold)) return null;
 
   return (
-    <Panel>
+    <Panel style={narrow ? null : TICKET_PAD}>
       <Eyebrow style={{ marginBottom: 4 }}>{t.resaleUi.ticketKicker}</Eyebrow>
       <H2 small>{t.resaleTitle}</H2>
       {listed > 0 && <Text style={[font(700), styles.count, { color: colors.link }]}>{t.resaleListedCount(listed)}</Text>}
@@ -131,12 +132,16 @@ export function TicketResale({ booking }: { booking: Booking }) {
   );
 }
 
+/** On wide screens the panel under the e-ticket lines its text up with the ticket's own 24/26 padding. */
+const TICKET_PAD = { paddingVertical: 24, paddingHorizontal: 26 };
+
 const styles = StyleSheet.create({
   parts: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 5 },
   twoCols: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 10 },
   half: { flexBasis: '48%', flexGrow: 1 },
   hidden: {
-    width: 146, height: 146, borderWidth: 1, borderStyle: 'dashed', borderColor: colors.line, backgroundColor: colors.control,
+    // The same 144px square as a framed QR code (126 + 2 × 9), so the seat labels under them line up.
+    width: 144, height: 144, borderWidth: 1, borderStyle: 'dashed', borderColor: colors.line, backgroundColor: colors.control,
     borderRadius: 12, padding: 12, alignItems: 'center', justifyContent: 'center',
   },
   count: { fontSize: 13, lineHeight: 20, marginBottom: 4 },

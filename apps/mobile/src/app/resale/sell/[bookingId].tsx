@@ -11,6 +11,7 @@ import { Field } from '../../../components/form';
 import { Crumbs, Page } from '../../../components/page';
 import { SeatToggles } from '../../../components/resale';
 import { PanelHead, showWhen, Subtle, VerifyBox, VerifyLine } from '../../../components/resale/parts';
+import { dotLine, unbroken } from '../../../format';
 import { Button, Line, Notice, Panel, Spinner, StatusText } from '../../../components/ui';
 import { useI18n } from '../../../i18n';
 import { showStarted, showStartsAt } from '../../../liveShow';
@@ -32,7 +33,7 @@ const backToMarket = () => (router.canGoBack() ? router.back() : router.replace(
  */
 export default function SellTickets() {
   const { t, lang } = useI18n();
-  const { type, font } = useType();
+  const { type, font, rtl } = useType();
   const { account, ready } = useAuth();
   const { bookingId } = useLocalSearchParams<{ bookingId: string }>();
   // Loads once the saved session is restored: loaded before it, a seller's payout details looked missing.
@@ -206,11 +207,10 @@ export default function SellTickets() {
       </VerifyBox>
 
       <Text role="heading" aria-level={3} style={[font(700), { color: colors.ink, fontSize: 14, lineHeight: 21.7, marginTop: 17, marginBottom: 8 }]}>
-        {t.resaleUi.eligibleBooking(b.reference)}
+        {t.resaleUi.eligibleBooking(unbroken(b.reference))}
       </Text>
-      <Text style={type.micro}>
-        {`${b.showtime.movie.title} · ${b.showtime.cinema.name} · ${showWhen(showStartsAt(b), t)}\n${t.resaleUi.originalEach(t.egp(paid))}`}
-      </Text>
+      <Text style={type.micro}>{dotLine(rtl, b.showtime.movie.title, b.showtime.cinema.name, showWhen(showStartsAt(b), t))}</Text>
+      <Text style={type.micro}>{t.resaleUi.originalEach(t.egp(paid))}</Text>
       <View style={{ marginTop: 3 }}>
         <SeatToggles
           options={b.tickets.map((x) => {
@@ -227,7 +227,6 @@ export default function SellTickets() {
 
       <Field label={t.resaleUi.priceLabel(t.egp(paid))} value={priceText} onChangeText={setPriceText} keyboardType="number-pad" ltr
         error={priceOk ? undefined : t.resalePriceCap} style={{ marginBottom: 5 }} />
-      <Text style={type.micro}>{t.resaleUi.proceedsLine(priceOk ? t.egp(each) : '–')}</Text>
 
       <View style={{ marginTop: 10 }}>
         <Line label={t.resaleBuyerPaysLine} value={priceOk ? t.egp(price + RESALE_BUYER_FEE) : '–'} />

@@ -5,9 +5,9 @@ export const en = {
   tapHint: 'Tap free seats to pick them. Tap a picked seat to drop it.',
   pickedOf: (n: number, of: number) => `${n} of ${of}`,
   noSeatsPicked: 'None yet. Tap seats on the map.',
-  togetherTag: 'together',
+  togetherTag: 'connected',
   /** How a selection is split, e.g. "3+1". */
-  splitTag: (pattern: string) => `split ${pattern}`,
+  splitTag: (pattern: string) => `separated ${pattern}`,
   splitPlaces: (n: number) => `apart, in ${n} places`,
   clearSeats: 'Clear',
   clearSeatsLabel: 'Clear the seats you picked',

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Platform, Text, View } from 'react-native';
 import { useAuth } from '../../auth';
 import { AccountPanel, DetailRow, LinkList, PanelTitle, TicketsCard } from '../../components/account/parts';
-import { SignInPanel } from '../../components/account/SignInPanel';
+import { SignInForm } from '../../components/AccountForm';
 import { Chips } from '../../components/Chips';
 import { Page } from '../../components/page';
 import { Button, Eyebrow, Spinner } from '../../components/ui';
@@ -48,7 +48,8 @@ function AccountSection() {
   const [busy, setBusy] = useState(false);
 
   if (!ready) return <AccountPanel padding={28}><Spinner /></AccountPanel>;
-  if (!account) return <SignInPanel />;
+  // Signing in here keeps the person on Profile, which then shows their account.
+  if (!account) return <SignInForm onSignedIn={() => {}} />;
 
   return (
     <AccountPanel padding={28} testID="profile-account">

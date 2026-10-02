@@ -70,7 +70,7 @@ export default function SignUp() {
             placeholder={t.mobilePlaceholder} autoComplete="tel" keyboardType="phone-pad" textContentType="telephoneNumber"
             returnKeyType="next" onSubmitEditing={() => refs.password.current?.focus()} />
           <Field ref={refs.password} label={t.authPassword} value={details.password} onChangeText={set('password')} error={shown('password')}
-            hint={t.authPasswordHint} ltr secret style={after} autoComplete="new-password" autoCapitalize="none" autoCorrect={false}
+            hint={t.authPasswordHint} placeholder={t.checkoutUi.newPasswordPlaceholder} ltr secret style={after} autoComplete="new-password" autoCapitalize="none" autoCorrect={false}
             textContentType="newPassword" returnKeyType="go" onSubmitEditing={submit} />
           {error ? <FormError text={error.text} action={error.taken ? { title: t.authSignInInstead, onPress: toSignIn } : undefined} /> : null}
           <Button title={t.authCreate} onPress={submit} busy={busy} testID="sign-up-submit" />

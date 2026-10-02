@@ -9,7 +9,7 @@ import { colors } from '../theme';
 import { useType } from '../typography';
 import { Field } from './form';
 import { Page } from './page';
-import { Button, Eyebrow, H2, Notice, Panel } from './ui';
+import { Button, Eyebrow, Notice, Panel } from './ui';
 
 // Sign-in and sign-up in the live account.html look: centred 480px panels on the dark page.
 
@@ -43,10 +43,10 @@ export function FormIntro({ kicker, heading, body }: { kicker: string; heading: 
 }
 
 /** A failed submit in a cream notice, with an optional way forward (e.g. "Sign in instead"). */
-export function FormError({ text, action }: { text: string; action?: { title: string; onPress: () => void } }) {
+export function FormError({ text, action, style }: { text: string; action?: { title: string; onPress: () => void }; style?: StyleProp<ViewStyle> }) {
   const { font } = useType();
   return (
-    <Notice tone="danger" role="alert" style={{ marginTop: 4, marginBottom: 14 }}>
+    <Notice tone="danger" role="alert" style={[{ marginTop: 4, marginBottom: 14 }, style]}>
       <Text style={[font(700), { color: colors.dangerOnCream, fontSize: 13, lineHeight: 20 }]}>{text}</Text>
       {action ? (
         <Text accessibilityRole="button" onPress={action.onPress} suppressHighlighting
@@ -72,10 +72,10 @@ export function SignedInNotice({ email, onContinue }: { email: string; onContinu
 }
 
 /** "New to YALLA? [Create an account]": a centred row under a hairline at the bottom of the panel. */
-export function FormSwitch({ prompt, children }: { prompt: string; children: ReactNode }) {
+export function FormSwitch({ prompt, children, style }: { prompt: string; children: ReactNode; style?: StyleProp<ViewStyle> }) {
   const { type } = useType();
   return (
-    <View style={styles.switch}>
+    <View style={[styles.switch, style]}>
       <Text style={[type.small, { color: colors.muted }]}>{prompt}</Text>
       {children}
     </View>
@@ -89,29 +89,8 @@ export function FormFootnote({ children }: { children: string }) {
 }
 
 /**
- * The live "Your tickets" card under the sign-in panel: what resale is for and a way in. Signed-in people also get
- * a link to their listings.
- */
-export function TicketsCard({ style }: { style?: StyleProp<ViewStyle> }) {
-  const { t } = useI18n();
-  const { type } = useType();
-  const { account } = useAuth();
-  return (
-    <AuthPanel padding={20} style={[{ marginTop: 15 }, style]} testID="tickets-card">
-      <Eyebrow>{t.checkoutUi.ticketsKicker}</Eyebrow>
-      <H2 style={{ fontSize: 19, lineHeight: 24, marginBottom: 0 }}>{t.checkoutUi.ticketsTitle}</H2>
-      <Text style={[type.small, { color: colors.muted, marginVertical: 13 }]}>{t.checkoutUi.ticketsBody}</Text>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-        <Button size="small" inline title={t.checkoutUi.ticketsButton} onPress={() => router.push('/resale')} />
-        {account ? <Button size="small" kind="soft" inline title={t.checkoutUi.myListings} onPress={() => router.push('/resale/mine')} /> : null}
-      </View>
-    </AuthPanel>
-  );
-}
-
-/**
  * The sign-in panel: email, password, Sign in, and the way to create an account. Someone already signed in sees
- * `SignedInNotice` instead. Used by the /sign-in screen; the Profile tab can embed it too.
+ * `SignedInNotice` instead. Used by the /sign-in screen and, signed out, the Profile tab.
  * - `next`: where "Create an account" should return to afterwards.
  * - `onSignedIn`: called after a successful sign-in (and by Continue on the signed-in notice).
  * - `onCreateAccount`: opens sign-up with the typed email; defaults to pushing /sign-up.
@@ -165,20 +144,26 @@ export function SignInForm({ next, initialEmail, onSignedIn, onCreateAccount }: 
       <Field ref={passwordRef} label={t.authPassword} value={password} onChangeText={setPassword} error={tried ? problems.password : undefined} ltr secret
         placeholder={t.checkoutUi.passwordPlaceholder} autoComplete="current-password" autoCapitalize="none" autoCorrect={false}
         textContentType="password" returnKeyType="go" onSubmitEditing={submit} style={{ marginTop: 0 }} />
-      {error ? <FormError text={error} /> : null}
       <Button title={t.signIn} onPress={submit} busy={busy} testID="sign-in-submit" />
+      {/* Where the live page writes its message (`.inlineNotice`): 11px under the button, at least 18px tall. */}
+      <View style={{ marginTop: 11, minHeight: 18 }}>
+        {error ? <FormError text={error} style={{ marginTop: 0, marginBottom: 0 }} /> : null}
+      </View>
 
-      <FormSwitch prompt={t.authNewHere}>
+      <FormSwitch prompt={t.authNewHere} style={{ marginTop: 15 }}>
         <Button kind="soft" size="small" inline title={t.createAccount}
           onPress={() => (onCreateAccount ? onCreateAccount(typed) : router.push(signUpHref(next, typed)))} />
       </FormSwitch>
+      {/* Where the live panel has its closing note: guest bookings join the account on sign-in (AuthProvider). */}
+      <FormFootnote>{t.authDeviceTickets}</FormFootnote>
     </AuthPanel>
   );
 }
 
 const styles = StyleSheet.create({
   panel: { width: '100%', maxWidth: 480, alignSelf: 'center' },
-  heading: { color: colors.ink, fontSize: 36, marginTop: 7, marginBottom: 12 },
+  // The live lead is a paragraph whose 15px top margin wins over the title's 12px.
+  heading: { color: colors.ink, fontSize: 36, marginTop: 7, marginBottom: 15 },
   switch: {
     flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', gap: 10,
     borderTopWidth: 1, borderTopColor: colors.line, paddingTop: 18, marginTop: 40,
