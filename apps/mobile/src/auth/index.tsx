@@ -46,7 +46,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const unchecked = useRef(false);
 
   /** Requests carry the token only while its account is shown, so the screens and the API always agree. */
-  const use = useCallback((next: Session | null) => {
+  const setSession = useCallback((next: Session | null) => {
     session.current = next;
     unchecked.current = false;
     setAuthToken(next?.account ? next.token : null);
@@ -59,10 +59,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // device must not take them. Never blocks signing in.
     if (signedIn.role !== 'operator') await claimDeviceBookings().catch(() => {});
     const next = { token, account: signedIn };
-    use(next);
+    setSession(next);
     await save(next);
     return signedIn;
-  }, [use]);
+  }, [setSession]);
 
   /**
    * Signs out on this device. The account's tickets saved here go too (those in its `history`, and any booking with an
@@ -70,10 +70,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    */
   const clear = useCallback(async (history?: string[]) => {
     if (!session.current) return;
-    use(null);
+    setSession(null);
     await AsyncStorage.removeItem(KEY).catch(() => {});
     await forgetAccountBookings(history).catch(() => {});
-  }, [use]);
+  }, [setSession]);
 
   /** Refreshes the account from GET /v1/me. A 401 signs out (below); any other failure keeps the saved account. */
   const check = useCallback(async () => {
@@ -83,12 +83,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const fresh = await authApi.me(checking.token);
       if (session.current !== checking) return; // Signed out or in meanwhile.
       const next = { token: checking.token, account: fresh };
-      use(next);
+      setSession(next);
       await save(next);
     } catch (e) {
       if (session.current === checking && !(e instanceof ApiError && e.status === 401)) unchecked.current = true;
     }
-  }, [use]);
+  }, [setSession]);
 
   useEffect(() => {
     AsyncStorage.getItem(KEY)
@@ -96,13 +96,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .then(async (raw) => {
         const saved = readSaved(raw);
         if (!saved) return;
-        use(saved);
+        setSession(saved);
         // The saved account shows at once and is refreshed in the background; a token saved without one is checked first.
         if (saved.account) check();
         else await check();
       })
       .finally(() => setReady(true));
-  }, [use, check]);
+  }, [setSession, check]);
 
   // A check that couldn't reach the API (e.g. offline at launch) runs again when the app, or the browser tab, is back.
   useEffect(() => {
