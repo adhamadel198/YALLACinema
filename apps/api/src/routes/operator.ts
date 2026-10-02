@@ -109,7 +109,10 @@ export async function operatorRoutes(app: FastifyInstance, { store, accounts, au
     };
   });
 
-  /** Find a booking by its reference (with or without the "YL-"). 403 when it is another cinema's. */
+  /**
+   * Find a booking by its reference (with or without the "YL-"). Another cinema's booking is 404, like an unknown
+   * reference, so staff can't learn which references exist elsewhere.
+   */
   app.get<{ Params: { reference: string } }>('/v1/operator/bookings/:reference', {
     ...staffOnly,
     schema: { params: { type: 'object', properties: { reference: { type: 'string', pattern: '^[A-Za-z0-9-]{3,32}$' } } } },
@@ -118,8 +121,7 @@ export async function operatorRoutes(app: FastifyInstance, { store, accounts, au
     if (!cinema) return reply.code(403).send(noCinema);
     const typed = req.params.reference.toUpperCase();
     const booking = await corrections.bookingByReference(typed.startsWith('YL-') ? typed : `YL-${typed}`);
-    if (!booking) return reply.code(404).send({ error: 'No booking has that reference.' });
-    if (booking.cinemaId !== cinema.id) return reply.code(403).send({ error: 'That booking is for another cinema.' });
+    if (!booking || booking.cinemaId !== cinema.id) return reply.code(404).send({ error: 'No booking has that reference.' });
     const listed = store.scheduled.find((s) => s.id === booking.showtimeId);
     return { booking, show: listed ? listedView(listed) : await unlistedView(booking) };
   });

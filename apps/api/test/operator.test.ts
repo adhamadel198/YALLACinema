@@ -52,7 +52,7 @@ test('the embedded database has one demo staff account per cinema', async () => 
   }
 });
 
-test('staff see only their own cinema: bookings, references and showtimes of another cinema are 403', async () => {
+test('staff see only their own cinema: another cinema\'s bookings are not found and its showtimes are 403', async () => {
   const app = await buildApp();
   const vox = await staff(app, 'vox-moe');
   const voxShow = await showAt(app, 'vox-moe');
@@ -79,13 +79,17 @@ test('staff see only their own cinema: bookings, references and showtimes of ano
   assert.deepEqual(show.totals, { bookings: 1, tickets: 2, ticketRevenue: voxShow.price * 2, fees: 10 });
   assert.equal(day.totals.tickets, 2);
 
-  // Search by reference: with or without "YL-", any case. Another cinema's booking is 403.
+  // Search by reference: with or without "YL-", any case. Another cinema's booking answers exactly like an
+  // unknown reference, so it doesn't reveal that the reference exists.
   const found = await app.inject({ url: `/v1/operator/bookings/${mine.reference.slice(3).toLowerCase()}`, headers: vox });
   assert.equal(found.statusCode, 200);
   assert.equal(found.json().booking.reference, mine.reference);
   assert.equal(found.json().show.id, voxShow.showtimeId);
-  assert.equal((await app.inject({ url: `/v1/operator/bookings/${theirs.reference}`, headers: vox })).statusCode, 403);
-  assert.equal((await app.inject({ url: '/v1/operator/bookings/YL-ZZZZZZ', headers: vox })).statusCode, 404);
+  const elsewhere = await app.inject({ url: `/v1/operator/bookings/${theirs.reference}`, headers: vox });
+  const unknown = await app.inject({ url: '/v1/operator/bookings/YL-ZZZZZZ', headers: vox });
+  assert.equal(elsewhere.statusCode, 404);
+  assert.equal(unknown.statusCode, 404);
+  assert.deepEqual(elsewhere.json(), unknown.json());
 
   // Another cinema's showtime can be neither seen nor corrected.
   assert.equal((await app.inject({ url: `/v1/operator/showtimes/${reelShow.showtimeId}`, headers: vox })).statusCode, 403);

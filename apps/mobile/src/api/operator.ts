@@ -81,7 +81,7 @@ export const operatorApi = {
   demoAccounts: () => request<{ password: string; accounts: { cinemaId: string; cinemaName: string; email: string }[] }>('/v1/operator/demo-accounts'),
   /** The cinema's shows on a day (today by default) with their bookings. */
   day: (day?: string) => request<StaffDay>(`/v1/operator/bookings${day ? `?day=${enc(day)}` : ''}`),
-  /** 404: no such booking; 403: another cinema's. */
+  /** 404: no such booking at the staff member's cinema (another cinema's bookings are not found either). */
   find: (reference: string) =>
     request<{ booking: StaffBooking; show: Omit<StaffShow, 'bookings' | 'totals' | 'seatsLeft'> }>(`/v1/operator/bookings/${enc(reference)}`),
   show: (id: string) => request<StaffShowDetail>(`/v1/operator/showtimes/${enc(id)}`),
