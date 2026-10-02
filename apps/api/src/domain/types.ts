@@ -79,7 +79,12 @@ export interface Ticket {
   seat: SeatId;
   /** What the cinema scans at the entrance. */
   qr: string;
-  status: 'valid' | 'listed' | 'pending-reactivation' | 'transferred' | 'used';
+  /**
+   * listed: on resale · pending-reactivation: unsold at showtime, waiting for the cinema · transferred: replaced
+   * by a resale buyer's ticket · under-review: a resale didn't finish after the cinema may have transferred it,
+   * so it is blocked until support settles it with the cinema (data/resale.ts).
+   */
+  status: 'valid' | 'listed' | 'pending-reactivation' | 'transferred' | 'used' | 'under-review';
 }
 
 /** The showtime as sold, kept with the booking so tickets still read correctly after the listing changes. */

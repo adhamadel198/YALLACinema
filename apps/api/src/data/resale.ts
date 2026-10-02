@@ -15,7 +15,8 @@ export const SANDBOX_VERIFICATION = 'unverified-sandbox';
 
 /**
  * A purchase normally finishes within one request. One still unfinished after this long was interrupted
- * (e.g. the server stopped mid-purchase), so its tickets go back on sale.
+ * (e.g. the server stopped mid-purchase): its tickets go back on sale if the cinema was not asked to transfer
+ * them yet, and are blocked for support if it was.
  */
 export const PURCHASE_TIMEOUT_MS = 10 * 60 * 1000;
 
@@ -30,9 +31,24 @@ export interface PayoutMethod {
 export type ListingStatus = 'open' | 'sold' | 'withdrawn' | 'expired' | 'closed';
 /**
  * listed: for sale · reserved: a buyer is paying · sold: transferred to a buyer · withdrawn: taken back by the seller ·
- * expired: unsold when the show started · returned: the cinema couldn't transfer it, so it went back to the seller.
+ * expired: unsold when the show started · returned: the cinema couldn't transfer it, so it went back to the seller ·
+ * under-review: the cinema transferred it, or may have, but the sale wasn't completed; support settles it.
  */
-export type ListedTicketState = 'listed' | 'reserved' | 'sold' | 'withdrawn' | 'expired' | 'returned';
+export type ListedTicketState = 'listed' | 'reserved' | 'sold' | 'withdrawn' | 'expired' | 'returned' | 'under-review';
+
+/**
+ * A purchase. reserved: the buyer is paying · transferring: paid, and the cinema is asked to transfer the tickets ·
+ * completed · payment-failed · refunded: the cinema didn't transfer them and the buyer was refunded ·
+ * refund-failed: likewise, but the refund failed, so support refunds the payment by hand · abandoned: stopped
+ * before the cinema was asked; the tickets went back on sale · needs-reconciliation: the cinema transferred the
+ * tickets, or may have, but the sale wasn't completed; the seller's tickets are blocked ('under-review') until
+ * support settles them with the cinema, and the failure says whether the buyer's refund went through.
+ */
+export type SaleStatus =
+  | 'reserved' | 'transferring' | 'completed' | 'payment-failed' | 'refunded' | 'refund-failed' | 'abandoned' | 'needs-reconciliation';
+
+/** A purchase that stopped part-way, for support. */
+export type StaleSale = { saleId: string; status: SaleStatus; reference: string; paymentRef: string | null; buyerAccountId: string };
 
 export interface Listing {
   id: string;
@@ -90,6 +106,9 @@ const LISTING_SELECT = `
 class Unavailable extends Error {
   constructor(readonly ticketIds: string[]) { super('Tickets unavailable'); }
 }
+
+/** Thrown to roll back a sale that can no longer be completed. */
+class Lost extends Error {}
 
 /** Resale listings, sales and seller payout details (BRD 11). Business rules are checked in routes/resale.ts. */
 export class Resale {
@@ -210,13 +229,15 @@ export class Resale {
   }
 
   /**
-   * The cinema couldn't transfer the tickets after the buyer paid (BRD 11): the sale is cancelled and the seller's
-   * tickets come off sale and stay valid. The caller refunds the buyer first; if that failed (`refunded` false)
-   * the sale is 'refund-failed', so support can find it and refund the payment by hand.
+   * The buyer paid but the cinema transferred nothing (BRD 11): it refused, or the payment took so long that the
+   * tickets went back on sale before it was asked. The sale is cancelled and the seller's tickets come off sale
+   * and stay valid. The caller refunds the buyer first; if that failed (`refunded` false) the sale is
+   * 'refund-failed', so support can find it and refund the payment by hand.
    */
   async transferFailed(saleId: string, paymentRef: string, reason: string, refunded: boolean) {
     await this.db.transaction(async (tx) => {
-      await tx.query(`UPDATE resale_sales SET status = $5, payment_ref = $2, failure = $3, updated_at = $4 WHERE id = $1 AND status = 'reserved'`,
+      await tx.query(
+        `UPDATE resale_sales SET status = $5, payment_ref = $2, failure = $3, updated_at = $4 WHERE id = $1 AND status IN ('reserved', 'transferring', 'abandoned')`,
         [saleId, paymentRef, reason, this.now(), refunded ? 'refunded' : 'refund-failed']);
       const { rows } = await tx.query<{ listing_id: string; ticket_id: string }>(
         `UPDATE resale_listing_tickets SET state = 'returned' WHERE sale_id = $1 AND state = 'reserved' RETURNING listing_id, ticket_id`, [saleId]);
@@ -227,50 +248,108 @@ export class Resale {
   }
 
   /**
-   * The buyer paid and the cinema transferred the tickets: the seller's tickets become 'transferred', the buyer
-   * gets a booking with the replacements, and the seller's payout is recorded as pending. False if the
-   * reservation was lost meanwhile (nothing changes then).
+   * The buyer has paid and the cinema is about to be asked to transfer the tickets. From now on it may have moved
+   * them, so if the purchase is interrupted releaseStale blocks them for support instead of putting them back on
+   * sale. False if the payment took so long that releaseStale already put them back on sale.
    */
-  async complete(saleId: string, paymentRef: string, booking: Booking, replacementFor: Map<string, string>): Promise<boolean> {
-    return this.db.transaction(async (tx) => {
-      const { rows } = await tx.query<{ listing_id: string; ticket_id: string }>(
-        `SELECT listing_id, ticket_id FROM resale_listing_tickets WHERE sale_id = $1 AND state = 'reserved'`, [saleId]);
-      if (rows.length !== replacementFor.size || !rows.every((r) => replacementFor.has(r.ticket_id))) return false;
-      const originals = rows.map((r) => r.ticket_id);
-      // Invalidate first: the replacements reuse the seats, which are unique among tickets in use.
-      const moved = await tx.query(`UPDATE tickets SET status = 'transferred' WHERE id = ANY($1) AND status = 'listed' RETURNING id`, [originals]);
-      if (moved.rows.length !== originals.length) throw new Error(`Resale ${saleId}: seller tickets changed during transfer`);
-      await insertBooking(tx, booking);
-      for (const original of originals)
-        await tx.query(`UPDATE resale_listing_tickets SET state = 'sold', replacement_ticket_id = $3 WHERE sale_id = $1 AND ticket_id = $2`,
-          [saleId, original, replacementFor.get(original)]);
-      await tx.query(
-        `UPDATE resale_sales SET status = 'completed', payout_status = 'pending', payment_ref = $2, booking_id = $3, updated_at = $4 WHERE id = $1`,
-        [saleId, paymentRef, booking.id, this.now()],
-      );
-      await this.closeIfDone(tx, rows[0].listing_id);
-      return true;
+  async startTransfer(saleId: string, paymentRef: string): Promise<boolean> {
+    const { rows } = await this.db.query(
+      `UPDATE resale_sales SET status = 'transferring', payment_ref = $2, updated_at = $3 WHERE id = $1 AND status = 'reserved' RETURNING id`,
+      [saleId, paymentRef, this.now()]);
+    return rows.length > 0;
+  }
+
+  /**
+   * The buyer paid and the cinema transferred the tickets: the seller's tickets become 'transferred', the buyer
+   * gets a booking with the replacements, and the seller's payout is recorded as pending. 'lost' (and nothing
+   * changes) if the sale can no longer be completed, e.g. releaseStale gave up on it meanwhile.
+   */
+  async complete(saleId: string, paymentRef: string, booking: Booking, replacementFor: Map<string, string>): Promise<'completed' | 'lost'> {
+    try {
+      return await this.db.transaction(async (tx) => {
+        // Locked, so releaseStale can't give up on the sale while it completes, or complete one it gave up on.
+        const { rows: [sale] } = await tx.query<{ status: SaleStatus }>('SELECT status FROM resale_sales WHERE id = $1 FOR UPDATE', [saleId]);
+        if (sale?.status !== 'transferring') throw new Lost();
+        const { rows } = await tx.query<{ listing_id: string; ticket_id: string }>(
+          `SELECT listing_id, ticket_id FROM resale_listing_tickets WHERE sale_id = $1 AND state = 'reserved'`, [saleId]);
+        if (rows.length !== replacementFor.size || !rows.every((r) => replacementFor.has(r.ticket_id))) throw new Lost();
+        const originals = rows.map((r) => r.ticket_id);
+        // Invalidate first: the replacements reuse the seats, which are unique among tickets in use.
+        const moved = await tx.query(`UPDATE tickets SET status = 'transferred' WHERE id = ANY($1) AND status = 'listed' RETURNING id`, [originals]);
+        if (moved.rows.length !== originals.length) throw new Lost();
+        await insertBooking(tx, booking);
+        for (const original of originals)
+          await tx.query(`UPDATE resale_listing_tickets SET state = 'sold', replacement_ticket_id = $3 WHERE sale_id = $1 AND ticket_id = $2`,
+            [saleId, original, replacementFor.get(original)]);
+        const done = await tx.query(
+          `UPDATE resale_sales SET status = 'completed', payout_status = 'pending', payment_ref = $2, booking_id = $3, updated_at = $4
+            WHERE id = $1 AND status = 'transferring' RETURNING id`,
+          [saleId, paymentRef, booking.id, this.now()],
+        );
+        if (!done.rows.length) throw new Lost();
+        await this.closeIfDone(tx, rows[0].listing_id);
+        return 'completed' as const;
+      });
+    } catch (e) {
+      if (e instanceof Lost) return 'lost';
+      throw e;
+    }
+  }
+
+  /**
+   * The cinema transferred the tickets, or may have (it didn't answer), but the sale can't be completed. The sale
+   * needs reconciliation and the seller's tickets are blocked ('under-review') and off sale until support settles
+   * them with the cinema. They are never made valid again here: the cinema may have invalidated them, so they
+   * could be used or sold twice.
+   */
+  async needsReconciliation(saleId: string, paymentRef: string, reason: string) {
+    await this.db.transaction(async (tx) => {
+      const { rows } = await tx.query(
+        `UPDATE resale_sales SET status = 'needs-reconciliation', payment_ref = $2, failure = $3, updated_at = $4
+          WHERE id = $1 AND status IN ('reserved', 'transferring', 'abandoned', 'needs-reconciliation') RETURNING id`,
+        [saleId, paymentRef, reason, this.now()]);
+      if (rows.length) await this.holdForReview(tx, [saleId]);
     });
   }
 
   /**
-   * Purchases still unfinished after PURCHASE_TIMEOUT_MS were interrupted: their tickets go back on sale (and
-   * close as usual if the show has started meanwhile). Returns them so support can check the payment provider
-   * for a charge under that reference and refund it.
+   * Blocks the seller's tickets from these sales wherever they are now (unless already transferred or used), and
+   * takes them off sale: their reservation, and any listing they went back on meanwhile.
    */
-  async releaseStale(): Promise<{ saleId: string; reference: string; buyerAccountId: string }[]> {
+  private async holdForReview(q: Queryable, saleIds: string[]) {
+    const tickets = 'SELECT unnest(ticket_ids) FROM resale_sales WHERE id = ANY($1)';
+    await q.query(`UPDATE tickets SET status = 'under-review' WHERE id IN (${tickets}) AND status IN ('valid', 'listed', 'pending-reactivation')`, [saleIds]);
+    const { rows } = await q.query<{ listing_id: string }>(
+      `UPDATE resale_listing_tickets SET state = 'under-review'
+        WHERE ticket_id IN (${tickets}) AND (state = 'listed' OR (state = 'reserved' AND sale_id = ANY($1))) RETURNING listing_id`, [saleIds]);
+    for (const id of new Set(rows.map((r) => r.listing_id))) await this.closeIfDone(q, id);
+  }
+
+  /**
+   * Purchases still unfinished after PURCHASE_TIMEOUT_MS were interrupted. If the cinema wasn't asked to transfer
+   * the tickets yet, they go back on sale (and close as usual if the show has started meanwhile). If it was, it
+   * may have moved them, so they are blocked for support like needsReconciliation. Returns the sales so support
+   * can check the payment provider for a charge under that reference, and the cinema for a transfer.
+   */
+  async releaseStale(): Promise<StaleSale[]> {
     const cutoff = new Date(this.clock() - PURCHASE_TIMEOUT_MS);
-    const due = await this.db.query(`SELECT 1 FROM resale_sales WHERE status = 'reserved' AND updated_at < $1 LIMIT 1`, [cutoff]);
+    const due = await this.db.query(`SELECT 1 FROM resale_sales WHERE (status = 'reserved' OR status = 'transferring') AND updated_at < $1 LIMIT 1`, [cutoff]);
     if (!due.rows.length) return [];
     return this.db.transaction(async (tx) => {
-      const { rows } = await tx.query<{ saleId: string; reference: string; buyerAccountId: string }>(
+      const returning = 'RETURNING id AS "saleId", status, reference, payment_ref AS "paymentRef", buyer_account_id AS "buyerAccountId"';
+      const abandoned = await tx.query<StaleSale>(
         `UPDATE resale_sales SET status = 'abandoned', failure = 'The purchase did not finish', updated_at = $2
-          WHERE status = 'reserved' AND updated_at < $1 RETURNING id AS "saleId", reference, buyer_account_id AS "buyerAccountId"`,
+          WHERE status = 'reserved' AND updated_at < $1 ${returning}`,
         [cutoff, this.now()]);
-      if (rows.length)
+      if (abandoned.rows.length)
         await tx.query(`UPDATE resale_listing_tickets SET state = 'listed', sale_id = NULL WHERE sale_id = ANY($1) AND state = 'reserved'`,
-          [rows.map((r) => r.saleId)]);
-      return rows;
+          [abandoned.rows.map((r) => r.saleId)]);
+      const unconfirmed = await tx.query<StaleSale>(
+        `UPDATE resale_sales SET status = 'needs-reconciliation', failure = 'The purchase stopped while the cinema was transferring the tickets', updated_at = $2
+          WHERE status = 'transferring' AND updated_at < $1 ${returning}`,
+        [cutoff, this.now()]);
+      if (unconfirmed.rows.length) await this.holdForReview(tx, unconfirmed.rows.map((r) => r.saleId));
+      return [...abandoned.rows, ...unconfirmed.rows];
     });
   }
 
@@ -311,7 +390,8 @@ export class Resale {
 
   /**
    * Closes an open listing once nothing in it is for sale or being bought. Its status says why: every ticket
-   * sold, some expired at showtime, some withdrawn, or otherwise closed (a failed transfer returned them).
+   * sold, some expired at showtime, some withdrawn, or otherwise closed (a failed transfer returned them, or
+   * they are under review).
    */
   private async closeIfDone(q: Queryable, listingId: string) {
     await q.query(

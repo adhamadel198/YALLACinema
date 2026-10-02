@@ -10,7 +10,7 @@ import { MAX_SEATS_PER_BOOKING } from '../domain/limits.ts';
 import { bookingTotal, PLATFORM_FEE_PER_TICKET, RESALE_SELLER_FEE, resaleQuote } from '../domain/pricing.ts';
 import type { Booking, PaymentMethod, ShowtimeSnapshot } from '../domain/types.ts';
 import type { PaymentProvider } from '../integrations/payments.ts';
-import type { CinemaIntegration } from '../integrations/cinema.ts';
+import type { CinemaIntegration, ConfirmResult } from '../integrations/cinema.ts';
 import { bookingReference, clientIdOf } from './booking.ts';
 import { nameSchema, uuidParams } from './schemas.ts';
 
@@ -85,8 +85,12 @@ export function resaleSweep(resale: Resale, cinema: CinemaIntegration, log: Fast
       .finally(() => { reactivating = undefined; });
   };
   const sweep = async () => {
-    for (const sale of await resale.releaseStale())
-      log.error(sale, 'Resale: a purchase did not finish, so its tickets went back on sale. Check the payment provider for a charge under this reference and refund it.');
+    for (const sale of await resale.releaseStale()) {
+      if (sale.status === 'abandoned')
+        log.error(sale, 'Resale: a purchase did not finish, so its tickets went back on sale. Check the payment provider for a charge under this reference and refund it.');
+      else
+        log.error(sale, 'Resale: a purchase stopped while the cinema was transferring its tickets. The seller’s tickets are blocked: check the transfer with the cinema, settle the tickets and refund the buyer.');
+    }
     const closed = await resale.closeStarted();
     // One run at a time. Tickets the cinema didn't reactivate, or that closed while a run was going, are
     // retried at most once a minute.
@@ -233,8 +237,9 @@ export async function resaleRoutes(app: FastifyInstance, { store, auth, payments
   /**
    * Buy tickets from a listing (BRD 11): the buyer pays the price plus the 5 EGP fee per ticket; the cinema
    * invalidates the seller's tickets and validates replacements in a new booking for the buyer; the seller's
-   * payout (price less 20 EGP, never below zero) is recorded as pending. A failed transfer refunds the buyer
-   * and leaves the seller's tickets valid.
+   * payout (price less 20 EGP, never below zero) is recorded as pending. If the cinema refuses the transfer, the
+   * buyer is refunded and the seller's tickets stay valid. If it may have transferred them but the sale can't be
+   * completed, the buyer is refunded and the seller's tickets are blocked for support (data/resale.ts).
    */
   app.post<{ Params: { id: string }; Body: { ticketIds: string[]; paymentMethod: PaymentMethod } }>('/v1/resale/listings/:id/purchase', {
     preHandler: auth.requireAccount,
@@ -274,51 +279,87 @@ export async function resaleRoutes(app: FastifyInstance, { store, auth, payments
       return reply.code(402).send({ error: 'Payment failed. You have not been charged.', code: 'payment-failed', reason: charge.reason });
     }
 
-    const sellerBooking = (await store.booking(listing.bookingId))!;
-    const originals = ticketIds.map((id) => sellerBooking.tickets.find((t) => t.id === id)!);
-    const replacements = originals.map((t) => ({ original: t, id: randomUUID(), qr: `YALLA:${reference}:${t.seat}` }));
+    const { saleId } = reserved;
+    const { paymentRef } = charge;
+    const log = req.log.child({ saleId, reference, paymentRef, amount: price.total });
     /** Refunds the buyer. False when the payment provider fails: support is alerted to refund them by hand. */
     const refundBuyer = async () => {
       try {
-        await payments.refund(charge.paymentRef);
+        await payments.refund(paymentRef);
         return true;
       } catch (e) {
-        req.log.error({ err: e, saleId: reserved.saleId, reference, paymentRef: charge.paymentRef, amount: price.total },
-          'Resale: refunding the buyer failed. Refund this payment by hand.');
+        log.error({ err: e }, 'Resale: refunding the buyer failed. Refund this payment by hand.');
         return false;
       }
     };
-    const refund = async (reason: string) => {
+    const cancelled = (refunded: boolean, code: string, error: string) => (refunded
+      ? reply.code(409).send({ error: `${error} You have been refunded.`, code })
+      : reply.code(502).send({
+        error: 'This purchase couldn’t be completed and your refund didn’t go through automatically. Our support team has been alerted and will refund you.',
+        code: 'refund-failed', reference,
+      }));
+    /** The cinema transferred nothing: the buyer is refunded and the seller's tickets are valid again. */
+    const untransferred = async (reason: string, code: string, error: string) => {
       const refunded = await refundBuyer();
-      await resale.transferFailed(reserved.saleId, charge.paymentRef, reason, refunded);
-      if (!refunded) {
-        return reply.code(502).send({
-          error: 'This purchase couldn’t be completed and your refund didn’t go through automatically. Our support team has been alerted and will refund you.',
-          code: 'refund-failed', reference,
-        });
-      }
-      return reply.code(409).send({ error: 'The cinema could not transfer these tickets. You have been refunded.', code: 'transfer-failed' });
+      await resale.transferFailed(saleId, paymentRef, reason, refunded)
+        .catch((e) => log.error({ err: e, reason, refunded }, 'Resale: recording a cancelled purchase failed'));
+      return cancelled(refunded, code, error);
+    };
+    /**
+     * The cinema transferred the tickets, or may have, but the sale can't be completed. The buyer has no ticket,
+     * so they are refunded; the seller's tickets stay blocked until support settles them with the cinema, as
+     * making them valid again could let them be used or sold twice.
+     */
+    const unreconciled = async (reason: string, code: string, error: string) => {
+      const refunded = await refundBuyer();
+      log.error({ reason, refunded }, 'Resale: the cinema transferred these tickets, or may have, but the sale was not completed. The seller’s tickets are blocked: settle them with the cinema.');
+      await resale.needsReconciliation(saleId, paymentRef, refunded ? reason : `${reason}. Refunding the buyer failed.`)
+        .catch((e) => log.error({ err: e }, 'Resale: recording a sale for reconciliation failed'));
+      return cancelled(refunded, code, error);
     };
 
-    const transfer = await cinema.resale.transfer({
-      showtimeId: listing.showtime.showtimeId, reference,
-      tickets: replacements.map((r) => ({ seat: r.original.seat, originalQr: r.original.qr, replacementQr: r.qr })),
-    }).catch((e: Error) => ({ ok: false as const, reason: e.message }));
-    if (!transfer.ok) return refund(transfer.reason);
+    const sellerBooking = (await store.booking(listing.bookingId))!;
+    const originals = ticketIds.map((id) => sellerBooking.tickets.find((t) => t.id === id)!);
+    const replacements = originals.map((t) => ({ original: t, id: randomUUID(), qr: `YALLA:${reference}:${t.seat}` }));
+    // From here on the cinema may move the tickets, so an interrupted purchase holds them for support rather
+    // than putting them back on sale. A payment so slow that its tickets went back on sale stops here.
+    if (!(await resale.startTransfer(saleId, paymentRef)))
+      return untransferred('The payment took too long, so the tickets went back on sale', 'purchase-cancelled', 'This purchase took too long, so it was cancelled.');
+
+    let transfer: ConfirmResult;
+    try {
+      transfer = await cinema.resale.transfer({
+        showtimeId: listing.showtime.showtimeId, reference,
+        tickets: replacements.map((r) => ({ seat: r.original.seat, originalQr: r.original.qr, replacementQr: r.qr })),
+      });
+    } catch (e) {
+      // No answer (e.g. a timeout) is not a refusal: the cinema may have transferred the tickets.
+      return unreconciled(`The cinema did not answer the transfer: ${(e as Error).message}`, 'purchase-cancelled',
+        'The cinema didn’t confirm the transfer, so the purchase was cancelled.');
+    }
+    if (!transfer.ok) return untransferred(transfer.reason, 'transfer-failed', 'The cinema could not transfer these tickets.');
 
     const booking: Booking = {
       id: randomUUID(), reference, showtime: { ...listing.showtime, price: listing.price },
       holder: { name: buyer.name, email: buyer.email, mobile: buyer.mobile }, accountId: buyer.id, paymentMethod,
-      price, paymentRef: charge.paymentRef, cinemaConfirmation: transfer.confirmation,
+      price, paymentRef, cinemaConfirmation: transfer.confirmation,
       tickets: replacements.map((r) => ({ id: r.id, seat: r.original.seat, qr: r.qr, status: 'valid' as const })),
       createdAt: resale.now().toISOString(),
     };
-    const done = await resale.complete(reserved.saleId, charge.paymentRef, booking, new Map(replacements.map((r) => [r.original.id, r.id])))
-      .catch((e) => { req.log.error(e); return false; });
-    if (!done) {
-      // The cinema already moved the tickets; support has to reconcile them with the cinema by hand.
-      req.log.error({ saleId: reserved.saleId, reference }, 'Resale: transfer confirmed by the cinema but not recorded; buyer refunded');
-      return refund('Transfer could not be recorded');
+    const replacementFor = new Map(replacements.map((r) => [r.original.id, r.id]));
+    // Most failures to record are brief (e.g. a dropped database connection), so it is tried once more.
+    const completed = await resale.complete(saleId, paymentRef, booking, replacementFor)
+      .catch((e) => {
+        log.warn({ err: e }, 'Resale: recording a transferred sale failed; trying again');
+        return resale.complete(saleId, paymentRef, booking, replacementFor);
+      })
+      .catch((e) => {
+        log.error({ err: e }, 'Resale: recording a transferred sale failed again');
+        return 'failed' as const;
+      });
+    if (completed !== 'completed') {
+      return unreconciled(completed === 'lost' ? 'The purchase was given up while the cinema was transferring' : 'The transfer could not be recorded',
+        'purchase-cancelled', 'This purchase couldn’t be completed.');
     }
     return reply.code(201).send(bookingView(store, booking, langOf(req)));
   });

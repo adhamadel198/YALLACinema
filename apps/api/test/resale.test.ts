@@ -55,6 +55,29 @@ function recordingPayments() {
   return { payments, charges, refunds, start };
 }
 
+/** Wraps `db` so that statements in transactions can be made to fail, like a dropped connection. */
+function flaky(real: Db) {
+  let failures = 0;
+  let pattern = /$^/;
+  const db: Db = {
+    ...real,
+    transaction: (fn) => real.transaction((tx) => fn({
+      query: <T,>(sql: string, params?: unknown[]) => {
+        if (failures > 0 && pattern.test(sql)) {
+          failures--;
+          return Promise.reject(new Error('Connection terminated unexpectedly'));
+        }
+        return tx.query<T>(sql, params);
+      },
+    })),
+  };
+  return { db, fail: (match: RegExp, times: number) => { pattern = match; failures = times; } };
+}
+
+/** The last purchase of a ticket. */
+const saleOf = async (db: Db, ticketId: string) => ({ ...(await db.query<{ status: string; payment_ref: string | null }>(
+  'SELECT status, payment_ref FROM resale_sales WHERE $1 = ANY(ticket_ids) ORDER BY created_at DESC LIMIT 1', [ticketId])).rows[0] });
+
 /** What the API logs at error level, to check support is alerted. */
 function errorLog() {
   const errors: { msg: string; [key: string]: unknown }[] = [];
@@ -459,6 +482,124 @@ test('a refund that fails is recorded for support, not as a refund, and the buye
   // The cinema transferred nothing, so the seller's ticket still works.
   assert.equal((await s.statuses(s.tickets.id))[first.seat], 'valid');
   assert.equal((await s.mine(s.seller.headers))[0].tickets[0].state, 'returned');
+});
+
+/**
+ * The seller's ticket from a sale the cinema may have transferred: blocked, off sale and not listable, and still
+ * blocked after the show starts, when unsold tickets are reactivated. Support settles it with the cinema.
+ */
+async function assertHeldForReview(s: Awaited<ReturnType<typeof setup>>, ticket: { id: string; seat: string }) {
+  type Mine = { status: string; tickets: { ticketId: string; state: string }[] };
+  assert.equal((await s.statuses(s.tickets.id))[ticket.seat], 'under-review');
+  assert.deepEqual(await s.market(), []);
+  const listing = ((await s.mine(s.seller.headers)) as Mine[]).find((l) => l.tickets.some((t) => t.ticketId === ticket.id))!;
+  assert.equal(listing.status, 'closed');
+  assert.equal(listing.tickets.find((t) => t.ticketId === ticket.id)!.state, 'under-review');
+  assert.equal((await s.list(s.seller.headers, s.tickets.id, [ticket.id], 100)).json().code, 'ineligible');
+  s.setNow(Date.parse(s.tickets.showtime.startsAt) + 61_000);
+  await s.market();
+  await new Promise((r) => setTimeout(r, 50));
+  assert.equal((await s.statuses(s.tickets.id))[ticket.seat], 'under-review');
+}
+
+test('if the cinema doesn’t answer a transfer, the buyer is refunded and the seller’s ticket is held for support', async () => {
+  const db = await createDb(undefined, 'memory://');
+  const log = errorLog();
+  const pay = recordingPayments();
+  const s = await setup({ db, payments: pay.payments, logger: log.logger, cinema: cinemaWith({ async transfer() { throw new Error('socket hang up'); } }) });
+  pay.start(async () => ({ ok: true, paymentRef: 'pay-1' }));
+  const [first] = s.tickets.tickets;
+  const listing = (await s.list(s.seller.headers, s.tickets.id, [first.id], 100)).json();
+
+  const res = await s.buy(s.buyer.headers, listing.id, [first.id]);
+  assert.equal(res.statusCode, 409);
+  assert.equal(res.json().code, 'purchase-cancelled');
+  assert.deepEqual(pay.refunds, ['pay-1']);
+  assert.deepEqual(await saleOf(db, first.id), { status: 'needs-reconciliation', payment_ref: 'pay-1' });
+  assert.ok(log.errors.some((e) => e.paymentRef === 'pay-1' && /settle them with the cinema/.test(e.msg)));
+  await assertHeldForReview(s, first);
+});
+
+test('a transfer the cinema confirmed but that can’t be recorded is tried again, then held for support; the seller’s ticket is never valid again', async () => {
+  const { db, fail } = flaky(await createDb(undefined, 'memory://'));
+  const log = errorLog();
+  const pay = recordingPayments();
+  const s = await setup({ db, payments: pay.payments, logger: log.logger });
+  pay.start();
+  const [first, second] = s.tickets.tickets;
+
+  // A brief failure: trying again records the sale.
+  const brief = (await s.list(s.seller.headers, s.tickets.id, [second.id], 100)).json();
+  fail(/INSERT INTO bookings/, 1);
+  const bought = await s.buy(s.buyer.headers, brief.id, [second.id]);
+  assert.equal(bought.statusCode, 201, bought.body);
+  assert.equal((await s.statuses(s.tickets.id))[second.seat], 'transferred');
+  assert.equal((await s.booking(bought.json().id)).tickets[0].status, 'valid');
+
+  // It keeps failing: the buyer is refunded and the seller's ticket stays blocked, so it can't be sold twice.
+  const lasting = (await s.list(s.seller.headers, s.tickets.id, [first.id], 100)).json();
+  fail(/INSERT INTO bookings/, 2);
+  const res = await s.buy(s.buyer.headers, lasting.id, [first.id]);
+  assert.equal(res.statusCode, 409);
+  assert.equal(res.json().code, 'purchase-cancelled');
+  assert.equal(pay.refunds.length, 1);
+  assert.equal((await saleOf(db, first.id)).status, 'needs-reconciliation');
+  assert.ok(log.errors.some((e) => /settle them with the cinema/.test(e.msg)));
+  await assertHeldForReview(s, first);
+});
+
+test('a purchase given up while the cinema transfers is held for support, not put back on sale', async () => {
+  const db = await createDb(undefined, 'memory://');
+  const log = errorLog();
+  const pay = recordingPayments();
+  let s!: Awaited<ReturnType<typeof setup>>;
+  s = await setup({
+    db, payments: pay.payments, logger: log.logger,
+    cinema: cinemaWith({
+      async transfer({ reference }) {
+        // The cinema takes over 10 minutes; meanwhile another request finds the purchase unfinished.
+        s.setNow(MORNING + 11 * 60 * 1000);
+        await s.market();
+        return { ok: true, confirmation: `CIN-${reference}` };
+      },
+    }),
+  });
+  pay.start(async () => ({ ok: true, paymentRef: 'pay-1' }));
+  const [first] = s.tickets.tickets;
+  const listing = (await s.list(s.seller.headers, s.tickets.id, [first.id], 100)).json();
+
+  const res = await s.buy(s.buyer.headers, listing.id, [first.id]);
+  assert.equal(res.statusCode, 409);
+  assert.equal(res.json().code, 'purchase-cancelled');
+  assert.deepEqual(pay.refunds, ['pay-1']);
+  assert.deepEqual(await saleOf(db, first.id), { status: 'needs-reconciliation', payment_ref: 'pay-1' });
+  assert.ok(log.errors.some((e) => /stopped while the cinema was transferring/.test(e.msg)));
+  await assertHeldForReview(s, first);
+});
+
+test('a payment that outlasts the reservation is refunded without asking the cinema; the tickets stay on sale', async () => {
+  const db = await createDb(undefined, 'memory://');
+  const pay = recordingPayments();
+  const transfers: string[] = [];
+  let s!: Awaited<ReturnType<typeof setup>>;
+  s = await setup({ db, payments: pay.payments, cinema: cinemaWith({ async transfer({ reference }) { transfers.push(reference); return { ok: true, confirmation: 'T' }; } }) });
+  pay.start(async () => {
+    // The payment takes over 10 minutes; meanwhile the purchase is found unfinished and its tickets go back on sale.
+    s.setNow(MORNING + 11 * 60 * 1000);
+    await s.market();
+    return { ok: true, paymentRef: 'pay-1' };
+  });
+  const [first] = s.tickets.tickets;
+  const listing = (await s.list(s.seller.headers, s.tickets.id, [first.id], 100)).json();
+
+  const res = await s.buy(s.buyer.headers, listing.id, [first.id]);
+  assert.equal(res.statusCode, 409);
+  assert.equal(res.json().code, 'purchase-cancelled');
+  assert.deepEqual(pay.refunds, ['pay-1']);
+  assert.deepEqual(transfers, []);
+  assert.deepEqual(await saleOf(db, first.id), { status: 'refunded', payment_ref: 'pay-1' });
+  assert.equal((await s.statuses(s.tickets.id))[first.seat], 'listed');
+  assert.deepEqual((await s.market())[0].tickets.map((t: { seat: string }) => t.seat), [first.seat]);
 });
 
 test('a failed payment puts the tickets back on sale', async () => {
