@@ -52,6 +52,7 @@ export const en = {
   resalePayoutTo: (label: string) => `Payouts go to ${label}`,
   resaleUnverified: 'Not verified yet: verification isn’t connected in this test build, and nothing is paid out for real.',
   resaleChange: 'Change',
+  resaleCancelChange: 'Cancel',
   resalePayoutInvalid: 'Check these details and try again.',
   resaleTicketsToSell: 'Tickets to sell',
   resaleTicketStatus: {
@@ -150,6 +151,7 @@ export const ar: typeof en = {
   resalePayoutTo: (label) => `الفلوس هتتحوّل على ${label}`,
   resaleUnverified: 'لسه ما اتأكدتش: التأكيد مش شغال في النسخة التجريبية دي، ومفيش فلوس بتتحوّل بجد.',
   resaleChange: 'غيّر',
+  resaleCancelChange: 'إلغاء',
   resalePayoutInvalid: 'راجع البيانات دي وحاول تاني.',
   resaleTicketsToSell: 'التذاكر اللي هتبيعها',
   resaleTicketStatus: { valid: 'متاحة', listed: 'معروضة', 'pending-reactivation': 'مستنية السينما', transferred: 'اتباعت', used: 'اتستخدمت', 'under-review': 'تحت المراجعة' },

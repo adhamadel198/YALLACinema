@@ -111,6 +111,10 @@ export const en = {
     noticeChangedBody: 'Your seats stay the same. If the change doesn’t suit you, contact YALLA support. The cinema’s policy applies.',
     newTime: 'New time',
     newFormat: 'New format',
+    /** On the ticket in the Tickets tab. */
+    ticketBadge: { cancelled: 'Show cancelled', changed: 'Show changed' },
+    /** In place of a cancelled show's QR codes. */
+    codesCancelled: 'The show was cancelled, so these codes no longer work.',
   },
 };
 
@@ -218,5 +222,7 @@ export const ar: typeof en = {
     noticeChangedBody: 'كراسيك زي ما هي. لو التغيير مش مناسبك، كلّم دعم YALLA. سياسة السينما هي اللي بتتطبق.',
     newTime: 'المعاد الجديد',
     newFormat: 'النوع الجديد',
+    ticketBadge: { cancelled: 'العرض اتلغى', changed: 'العرض اتغيّر' },
+    codesCancelled: 'العرض اتلغى، فالأكواد دي مبقتش شغالة.',
   },
 };

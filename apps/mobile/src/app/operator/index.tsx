@@ -1,5 +1,5 @@
 import { router, Stack, useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { Account } from '../../api/auth';
 import { ApiError } from '../../api/client';
@@ -33,9 +33,8 @@ function Dashboard({ account }: { account: Account }) {
   const { signOut } = useAuth();
   const wide = useWide();
   const [day, setDay] = useState<string>();
+  // A session that expired signs out (AuthProvider), which brings back the sign-in form.
   const data = useRequest(() => operatorApi.day(day).catch((e) => {
-    // A session that expired signs out, which brings back the sign-in form.
-    if (e instanceof ApiError && e.status === 401) signOut();
     throw new Error(e instanceof ApiError && e.status === 403 ? t.op.noCinema : t.loadFailed);
   }), [day, t]);
   // Back from correcting a show: show what changed.
@@ -142,13 +141,17 @@ function FindBooking() {
   const { t } = useI18n();
   const [reference, setReference] = useState('');
   const [busy, setBusy] = useState(false);
+  // Enter in the field searches too: a second search while one is in flight is ignored.
+  const finding = useRef(false);
   const [found, setFound] = useState<Awaited<ReturnType<typeof operatorApi.find>>>();
   const [error, setError] = useState<string>();
 
   async function find() {
+    if (finding.current) return;
     const typed = reference.trim().toUpperCase();
     setFound(undefined);
     if (!/^[A-Z0-9-]{3,32}$/.test(typed)) return setError(t.op.badReference);
+    finding.current = true;
     setBusy(true);
     setError(undefined);
     try {
@@ -157,6 +160,7 @@ function FindBooking() {
       const status = e instanceof ApiError ? e.status : 0;
       setError(status === 404 ? t.op.notFound : status === 403 ? t.op.otherCinema : t.genericError);
     } finally {
+      finding.current = false;
       setBusy(false);
     }
   }

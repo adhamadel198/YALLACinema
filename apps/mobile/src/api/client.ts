@@ -19,6 +19,13 @@ let authToken: string | null = null;
 /** The signed-in session token, sent as `Authorization: Bearer`. Set by AuthProvider. */
 export const setAuthToken = (token: string | null) => { authToken = token; };
 
+let sessionExpired: ((token: string) => void) | undefined;
+/**
+ * Called with the token when a request sent with one gets 401: the API no longer knows that session (it expired,
+ * or the server's data was reset). Set by AuthProvider, which signs out, so no screen has to handle it.
+ */
+export const onSessionExpired = (handler: typeof sessionExpired) => { sessionExpired = handler; };
+
 let language = 'en';
 /** Listings come back in this language (BRD 7.1). Set by LanguageProvider. */
 export const setApiLanguage = (lang: string) => { language = lang; };
@@ -46,20 +53,25 @@ export class ApiError extends Error {
   }
 }
 
-/** Calls the API. Feature modules (e.g. api/auth.ts) build on this rather than growing `api` below. */
-export async function request<T>(path: string, init?: { method: string; body?: unknown }): Promise<T> {
+/**
+ * Calls the API. Feature modules (e.g. api/auth.ts) build on this rather than growing `api` below.
+ * `token` sends that session token instead of the signed-in one.
+ */
+export async function request<T>(path: string, init?: { method?: string; body?: unknown; token?: string }): Promise<T> {
+  const token = init?.token ?? authToken;
   const res = await fetch(apiBase() + path, {
     method: init?.method ?? 'GET',
     headers: {
       'Accept-Language': language,
       'X-Client-Id': await getClientId(),
-      ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...(init?.body ? { 'Content-Type': 'application/json' } : {}),
     },
     body: init?.body ? JSON.stringify(init.body) : undefined,
   });
   if (res.status === 204) return undefined as T;
   const body = await res.json().catch(() => ({}));
+  if (res.status === 401 && token) sessionExpired?.(token);
   if (!res.ok) throw new ApiError(body.error ?? `Request failed (${res.status})`, res.status, body);
   return body as T;
 }

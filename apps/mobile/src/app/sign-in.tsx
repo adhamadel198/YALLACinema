@@ -21,6 +21,8 @@ export default function SignIn() {
   const [password, setPassword] = useState('');
   const [tried, setTried] = useState(false);
   const [busy, setBusy] = useState(false);
+  // Enter in the password field submits too: a second submit while one is in flight is ignored.
+  const submitting = useRef(false);
   const [error, setError] = useState<string>();
   const passwordRef = useRef<TextInput>(null);
 
@@ -30,9 +32,11 @@ export default function SignIn() {
   };
 
   async function submit() {
+    if (submitting.current) return;
     setTried(true);
     setError(undefined);
     if (problems.email || problems.password) return;
+    submitting.current = true;
     setBusy(true);
     try {
       await signIn(email.trim(), password);
@@ -40,6 +44,7 @@ export default function SignIn() {
     } catch (e) {
       setError(authErrorMessage(e, t));
       setBusy(false);
+      submitting.current = false;
     }
   }
 

@@ -18,7 +18,8 @@ export default function MyListings() {
   const theme = useTheme();
   const { t, lang } = useI18n();
   const { account, ready } = useAuth();
-  const listings = useRequest(() => (account ? resaleApi.myListings() : Promise.resolve([])), [lang, account?.id]);
+  // Loads once the saved session is restored, so "no listings" never shows before the seller's listings arrive.
+  const listings = useRequest(() => (ready && account ? resaleApi.myListings() : Promise.resolve(null)), [lang, ready, account?.id]);
   useFocusEffect(useCallback(() => listings.reload(), [listings.reload]));
 
   const title = <Stack.Screen options={{ title: t.resaleMyListings }} />;

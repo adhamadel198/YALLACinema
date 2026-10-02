@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { ApiError } from '../../api/client';
 import { operatorApi } from '../../api/operator';
@@ -21,10 +21,13 @@ export function StaffSignIn() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
+  // Enter in either field submits too: a second submit while one is in flight is ignored.
+  const submitting = useRef(false);
   const [error, setError] = useState<string>();
 
   async function submit() {
-    if (!email.trim() || !password) return;
+    if (!email.trim() || !password || submitting.current) return;
+    submitting.current = true;
     setBusy(true);
     setError(undefined);
     try {
@@ -33,6 +36,7 @@ export function StaffSignIn() {
       const status = e instanceof ApiError ? e.status : 0;
       setError(status === 401 ? t.op.wrongPassword : status === 429 ? t.op.tooManyTries : t.genericError);
     } finally {
+      submitting.current = false;
       setBusy(false);
     }
   }

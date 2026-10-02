@@ -1,5 +1,5 @@
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState, type ComponentProps } from 'react';
+import { useLayoutEffect, useRef, useState, type ComponentProps } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { api, ApiError } from '../../../api/client';
 import { RESALE_BUYER_FEE, RESALE_SELLER_FEE, resaleApi, sellerReceives, type PayoutDetails, type PayoutMethod } from '../../../api/resale';
@@ -10,6 +10,7 @@ import { Button, Line, Message, Panel } from '../../../components/ui';
 import { useAuth } from '../../../auth';
 import { showDate } from '../../../format';
 import { useI18n } from '../../../i18n';
+import { showStarted, showStartsAt } from '../../../liveShow';
 import { useTheme } from '../../../theme';
 
 type PayoutForm = { kind: PayoutDetails['kind']; mobile: string; bankName: string; accountName: string; accountNumber: string };
@@ -27,10 +28,12 @@ export default function SellTickets() {
   const { t, lang } = useI18n();
   const { account, ready } = useAuth();
   const { bookingId } = useLocalSearchParams<{ bookingId: string }>();
+  // Loads once the saved session is restored: loaded before it, a seller's payout details looked missing.
   const data = useRequest(async () => {
-    const [booking, payout] = await Promise.all([api.booking(bookingId), account ? resaleApi.payoutMethod() : null]);
+    if (!ready || !account) return null;
+    const [booking, payout] = await Promise.all([api.booking(bookingId), resaleApi.payoutMethod()]);
     return { booking, payout };
-  }, [bookingId, lang, account?.id]);
+  }, [bookingId, lang, ready, account?.id]);
 
   const [payout, setPayout] = useState<PayoutMethod | null>();
   const [editingPayout, setEditingPayout] = useState(false);
@@ -41,9 +44,12 @@ export default function SellTickets() {
   const [priceText, setPriceText] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
+  /** Saving payout details or listing again while one is in flight is ignored. */
+  const sending = useRef(false);
 
   const loaded = data.data;
-  useEffect(() => {
+  // Before the screen paints, so the payout form and price error never flash before the loaded values are in.
+  useLayoutEffect(() => {
     if (!loaded) return;
     setPayout(loaded.payout);
     setSelected(loaded.booking.tickets.filter((x) => x.status === 'valid').map((x) => x.id));
@@ -59,7 +65,8 @@ export default function SellTickets() {
 
   const b = loaded.booking;
   if (b.accountId !== account.id) return <>{title}<Message text={t.resaleNotOwner} /></>;
-  if (Date.parse(b.showtime.startsAt) <= Date.now()) return <>{title}<Message text={t.resaleShowStarted} /></>;
+  if (b.showChange?.kind === 'cancelled') return <>{title}<Message text={t.resaleShowCancelled} /></>;
+  if (showStarted(b)) return <>{title}<Message text={t.resaleShowStarted} /></>;
   const sellable = b.tickets.filter((x) => x.status === 'valid');
   const paid = b.showtime.price;
   const price = Number(latinDigits(priceText.trim()));
@@ -72,6 +79,8 @@ export default function SellTickets() {
     : form.bankName.trim().length >= 2 && form.accountName.trim().length >= 2 && /^[A-Za-z0-9 ]{6,40}$/.test(latinDigits(form.accountNumber.trim()));
 
   async function savePayout() {
+    if (sending.current) return;
+    sending.current = true;
     setSavingPayout(true);
     setPayoutError(undefined);
     try {
@@ -84,11 +93,14 @@ export default function SellTickets() {
     } catch (e) {
       setPayoutError(e instanceof ApiError && e.status === 400 ? t.resalePayoutInvalid : t.genericError);
     } finally {
+      sending.current = false;
       setSavingPayout(false);
     }
   }
 
   async function list() {
+    if (sending.current) return;
+    sending.current = true;
     setBusy(true);
     setError(undefined);
     try {
@@ -109,6 +121,7 @@ export default function SellTickets() {
           : t.genericError,
       );
     } finally {
+      sending.current = false;
       setBusy(false);
     }
   }
@@ -135,7 +148,7 @@ export default function SellTickets() {
         <Panel>
           <Text style={[styles.title, { color: theme.ink }]}>{b.showtime.movie.title}</Text>
           <Text style={{ color: theme.muted }}>{b.showtime.cinema.name}</Text>
-          <Text style={{ color: theme.muted, marginBottom: 10 }}>{showDate(b.showtime.startsAt, t)}</Text>
+          <Text style={{ color: theme.muted, marginBottom: 10 }}>{showDate(showStartsAt(b), t)}</Text>
           <Text style={{ color: theme.ink }}>{t.resaleYouPaid(t.egp(paid))}</Text>
         </Panel>
 
@@ -163,6 +176,10 @@ export default function SellTickets() {
             <Text style={{ color: theme.muted, fontSize: 12, marginBottom: 12 }}>{t.resaleUnverified}</Text>
             {payoutError && <Text style={{ color: theme.accent, marginBottom: 12 }}>{payoutError}</Text>}
             <Button title={t.resaleSavePayout} onPress={savePayout} busy={savingPayout} disabled={!payoutValid} />
+            {payout && (
+              <Button title={t.resaleCancelChange} kind="secondary" style={{ marginTop: 10 }}
+                onPress={() => { setEditingPayout(false); setForm(emptyPayout); setPayoutError(undefined); }} />
+            )}
           </Panel>
         ) : (
           <Panel>
