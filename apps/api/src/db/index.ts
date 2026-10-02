@@ -78,7 +78,9 @@ async function applied(q: Queryable, version: string) {
 }
 
 function postgres(url: string): { db: Db; migrate: Migrate } {
-  const pool = new pg.Pool({ connectionString: url });
+  // Few connections per instance, since serverless platforms run many instances against one server. A start
+  // against a database that can't be reached fails after 5 seconds instead of hanging (see vercel.ts).
+  const pool = new pg.Pool({ connectionString: url, max: 3, connectionTimeoutMillis: 5000 });
   const handle = (client: pg.PoolClient) => ({
     query: (sql: string, params?: unknown[]) => client.query(sql, params) as never,
     exec: async (sql: string) => { await client.query(sql); },
