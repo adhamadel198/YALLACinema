@@ -100,7 +100,7 @@ export const en = {
         },
         showChange: {
           q: 'What if the cinema changes or cancels my show?',
-          a: 'We’ll let you know using the email and mobile number on your booking, work it out with the cinema, and follow its policy for a refund or a new booking.',
+          a: 'The change shows on your ticket in the Tickets tab: the new time or format, or that the show was cancelled. We can’t email or text you about changes yet, so check your ticket before you go. If the change doesn’t suit you, contact support with your booking reference and we’ll work it out with the cinema under its policy, whether that’s a refund or another show.',
         },
       },
     },
@@ -109,7 +109,7 @@ export const en = {
       items: {
         eligible: {
           q: 'Which tickets can I resell?',
-          a: 'Only tickets you bought on YALLA that haven’t been scanned or used. You need a YALLA account with verified payout details, and we check with the cinema that the ticket can be resold before it goes on sale. You can put one ticket or several from the same booking up for sale.',
+          a: 'Only tickets you bought on YALLA that haven’t been scanned or used. You need a YALLA account and payout details (a mobile wallet or bank account) so we know where to send your money; we don’t verify payout details yet. We check with the cinema that the ticket can be resold before it goes on sale. You can put one ticket or several from the same booking up for sale.',
         },
         price: {
           q: 'How much can I sell for, and what do I get?',
@@ -230,7 +230,7 @@ export const ar: typeof en = {
         },
         showChange: {
           q: 'لو السينما غيّرت أو لغت العرض بتاعي؟',
-          a: 'هنبلّغك على الإيميل ورقم الموبايل اللي في الحجز، وهنتابع مع السينما ونمشي على سياستها، سواء استرداد الفلوس أو حجز جديد.',
+          a: 'التغيير بيظهر على تذكرتك في تبويب «تذاكري»: المعاد أو النوع الجديد، أو إن العرض اتلغى. لسه مش بنقدر نبعتلك إيميل أو رسالة بالتغييرات، فبص على تذكرتك قبل ما تروح. ولو التغيير مش مناسبك، كلّم الدعم ومعاك رقم الحجز، وإحنا هنتابع مع السينما ونمشي على سياستها، سواء استرداد الفلوس أو عرض تاني.',
         },
       },
     },
@@ -239,7 +239,7 @@ export const ar: typeof en = {
       items: {
         eligible: {
           q: 'إيه التذاكر اللي أقدر أبيعها تاني؟',
-          a: 'التذاكر اللي اشتريتها من YALLA بس، واللي متمسحتش ومتستخدمتش. محتاج حساب على YALLA وبيانات استلام فلوس موثّقة، وبنتأكد مع السينما إن التذكرة ينفع تتباع قبل ما تنزل للبيع. تقدر تنزّل تذكرة واحدة أو أكتر من نفس الحجز.',
+          a: 'التذاكر اللي اشتريتها من YALLA بس، واللي متمسحتش ومتستخدمتش. محتاج حساب على YALLA وبيانات استلام فلوس (محفظة موبايل أو حساب بنكي) عشان نعرف نحوّلك فلوسك فين؛ والبيانات دي لسه مش بنتأكد منها. وبنتأكد مع السينما إن التذكرة ينفع تتباع قبل ما تنزل للبيع. تقدر تنزّل تذكرة واحدة أو أكتر من نفس الحجز.',
         },
         price: {
           q: 'أبيع بكام، وهاخد كام؟',
