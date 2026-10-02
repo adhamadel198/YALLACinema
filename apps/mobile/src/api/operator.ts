@@ -3,7 +3,7 @@ import type { PaymentMethod, Price } from './types';
 
 // Cinema operator portal (BRD 5.2, 7.5, 9). Mirrors apps/api/src/routes/operator.ts.
 
-export type TicketStatus = 'valid' | 'listed' | 'pending-reactivation' | 'transferred' | 'used';
+export type TicketStatus = 'valid' | 'listed' | 'pending-reactivation' | 'transferred' | 'used' | 'under-review';
 
 /** A booking as cinema staff see it: no contact details, payment references or ticket codes. */
 export interface StaffBooking {

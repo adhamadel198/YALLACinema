@@ -50,6 +50,7 @@ function ListingCard({ listing: l, onChanged }: { listing: MyListing; onChanged:
   const [note, setNote] = useState<string>();
   const unsold = l.tickets.some((x) => x.state === 'listed');
   const waiting = l.tickets.some((x) => x.ticketStatus === 'pending-reactivation');
+  const reviewing = l.tickets.some((x) => x.ticketStatus === 'under-review');
 
   async function withdraw() {
     setBusy(true);
@@ -82,7 +83,7 @@ function ListingCard({ listing: l, onChanged }: { listing: MyListing; onChanged:
           <View key={x.ticketId} style={styles.seat}>
             <Text style={{ color: theme.ink, fontWeight: '700' }}>{t.seat(x.seat)}</Text>
             <Text style={{ color: x.state === 'sold' ? theme.good : x.state === 'listed' ? theme.accent : theme.muted, fontSize: 12 }}>
-              {x.ticketStatus === 'pending-reactivation' ? t.resaleTicketStatus['pending-reactivation'] : t.resaleTicketState[x.state]}
+              {x.ticketStatus === 'pending-reactivation' || x.ticketStatus === 'under-review' ? t.resaleTicketStatus[x.ticketStatus] : t.resaleTicketState[x.state]}
             </Text>
           </View>
         ))}
@@ -90,6 +91,7 @@ function ListingCard({ listing: l, onChanged }: { listing: MyListing; onChanged:
 
       {l.pendingPayout > 0 && <Text style={{ color: theme.good, fontWeight: '700', marginTop: 10 }}>{t.resalePendingPayout(t.egp(l.pendingPayout))}</Text>}
       {waiting && <Text style={{ color: theme.accent, fontSize: 12, marginTop: 8 }}>{t.resaleWaitingCinema}</Text>}
+      {reviewing && <Text style={{ color: theme.accent, fontSize: 12, marginTop: 8 }}>{t.resaleUnderReview}</Text>}
       {note && <Text style={{ color: note === t.resaleWithdrawn ? theme.good : theme.accent, marginTop: 10 }}>{note}</Text>}
       {l.status === 'open' && unsold && (
         <Button title={t.resaleWithdraw} kind="secondary" onPress={withdraw} busy={busy} style={{ marginTop: 12 }} />

@@ -59,6 +59,7 @@ export const en = {
     colPaid: 'Paid',
     ticketStatus: {
       valid: 'valid', listed: 'listed for resale', 'pending-reactivation': 'awaiting reactivation', transferred: 'transferred', used: 'used',
+      'under-review': 'resale under review',
     } as Record<string, string>,
     statusCount: (n: number, status: string) => `${n} ${status}`,
     soldAs: (time: string, format: string) => `Booked for ${time} · ${format}`,
@@ -169,6 +170,7 @@ export const ar: typeof en = {
     colPaid: 'المدفوع',
     ticketStatus: {
       valid: 'سارية', listed: 'معروضة لإعادة البيع', 'pending-reactivation': 'مستنية إعادة تفعيل', transferred: 'اتنقلت', used: 'اتستخدمت',
+      'under-review': 'إعادة بيع تحت المراجعة',
     },
     statusCount: (n, status) => `${n} ${status}`,
     soldAs: (time, format) => `اتحجز على ${time} · ${format}`,

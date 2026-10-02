@@ -23,8 +23,9 @@ export interface MarketListing {
 }
 
 export type ListingStatus = 'open' | 'sold' | 'withdrawn' | 'expired' | 'closed';
-export type ListedTicketState = 'listed' | 'reserved' | 'sold' | 'withdrawn' | 'expired' | 'returned';
-export type TicketStatus = 'valid' | 'listed' | 'pending-reactivation' | 'transferred' | 'used';
+/** under-review: a sale didn't finish after the cinema may have transferred the ticket; support settles it with the cinema. */
+export type ListedTicketState = 'listed' | 'reserved' | 'sold' | 'withdrawn' | 'expired' | 'returned' | 'under-review';
+export type TicketStatus = 'valid' | 'listed' | 'pending-reactivation' | 'transferred' | 'used' | 'under-review';
 
 /** A listing as its seller sees it. */
 export interface MyListing {

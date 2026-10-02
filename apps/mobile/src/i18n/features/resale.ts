@@ -31,6 +31,10 @@ export const en = {
   resaleClosed: 'This listing has closed.',
   resalePaymentFailed: 'Payment failed. You have not been charged.',
   resaleTransferFailed: 'The cinema couldn’t transfer this ticket, so the purchase was cancelled and you have been refunded.',
+  resaleBuyShowCancelled: 'The cinema cancelled this show, so the purchase was cancelled and you have been refunded.',
+  resalePurchaseCancelled: 'This purchase couldn’t be completed, so it was cancelled and you have been refunded.',
+  resaleRefundFailed: (reference: string) =>
+    `This purchase couldn’t be completed and your refund didn’t go through automatically. Our support team has been alerted and will refund you. Booking reference: ${reference}`,
   resaleBackToMarket: 'Back to resale',
 
   // Selling
@@ -50,7 +54,9 @@ export const en = {
   resaleChange: 'Change',
   resalePayoutInvalid: 'Check these details and try again.',
   resaleTicketsToSell: 'Tickets to sell',
-  resaleTicketStatus: { valid: 'Available', listed: 'Listed', 'pending-reactivation': 'Waiting for cinema', transferred: 'Sold', used: 'Used' } as Record<TicketStatus, string>,
+  resaleTicketStatus: {
+    valid: 'Available', listed: 'Listed', 'pending-reactivation': 'Waiting for cinema', transferred: 'Sold', used: 'Used', 'under-review': 'Under review',
+  } as Record<TicketStatus, string>,
   resalePriceLabel: (max: string) => `Price per ticket (up to ${max})`,
   resalePriceCap: 'You can’t ask more than you paid, excluding fees.',
   resaleBuyerPaysLine: 'Buyer pays per ticket',
@@ -69,7 +75,9 @@ export const en = {
   // My listings
   resaleMineEmpty: 'You haven’t listed any tickets. Open a ticket from the Tickets tab to sell it.',
   resaleStatus: { open: 'On sale', sold: 'Sold', withdrawn: 'Withdrawn', expired: 'Closed at showtime', closed: 'Closed' } as Record<ListingStatus, string>,
-  resaleTicketState: { listed: 'For sale', reserved: 'Being bought', sold: 'Sold', withdrawn: 'Withdrawn', expired: 'Unsold', returned: 'Back with you' } as Record<ListedTicketState, string>,
+  resaleTicketState: {
+    listed: 'For sale', reserved: 'Being bought', sold: 'Sold', withdrawn: 'Withdrawn', expired: 'Unsold', returned: 'Back with you', 'under-review': 'Under review',
+  } as Record<ListedTicketState, string>,
   resalePriceEach: (price: string) => `${price} per ticket`,
   resaleYouReceiveEach: (amount: string) => `You receive ${amount} for each ticket sold`,
   resalePendingPayout: (amount: string) => `Payout pending: ${amount}`,
@@ -77,6 +85,7 @@ export const en = {
   resaleWithdrawn: 'Withdrawn. Your tickets are valid again.',
   resaleBusy: 'Someone is buying these tickets right now. Try again in a minute.',
   resaleWaitingCinema: 'Waiting for the cinema to reactivate this ticket. Support has been alerted.',
+  resaleUnderReview: 'A sale from this listing didn’t finish. Our support team is checking the tickets with the cinema and will contact you.',
 
   // Ticket screen
   resaleSellHint: 'Can’t make it? List some or all of these tickets for up to what you paid.',
@@ -90,6 +99,7 @@ export const en = {
     transferred: 'Replaced by the buyer’s new ticket. This code no longer works.',
     'pending-reactivation': 'Waiting for the cinema to reactivate it.',
     used: 'Already used.',
+    'under-review': 'A resale of this ticket didn’t finish. Our support team is checking it with the cinema and will contact you.',
   } as Record<Exclude<TicketStatus, 'valid'>, string>,
 };
 
@@ -120,6 +130,10 @@ export const ar: typeof en = {
   resaleClosed: 'الإعلان ده اتقفل.',
   resalePaymentFailed: 'الدفع ما نجحش. مفيش فلوس اتخصمت.',
   resaleTransferFailed: 'السينما مقدرتش تنقل التذكرة، فالشراء اتلغى وفلوسك هترجعلك.',
+  resaleBuyShowCancelled: 'السينما لغت العرض ده، فالشراء اتلغى وفلوسك هترجعلك.',
+  resalePurchaseCancelled: 'الشراء ده ما كملش، فاتلغى وفلوسك هترجعلك.',
+  resaleRefundFailed: (reference) =>
+    `الشراء ده ما كملش، وفلوسك ما رجعتش أوتوماتيك. فريق الدعم عرف وهيرجعلك فلوسك. رقم الحجز: ${reference}`,
   resaleBackToMarket: 'ارجع لإعادة البيع',
 
   resaleSellTitle: 'بيع تذاكر',
@@ -138,7 +152,7 @@ export const ar: typeof en = {
   resaleChange: 'غيّر',
   resalePayoutInvalid: 'راجع البيانات دي وحاول تاني.',
   resaleTicketsToSell: 'التذاكر اللي هتبيعها',
-  resaleTicketStatus: { valid: 'متاحة', listed: 'معروضة', 'pending-reactivation': 'مستنية السينما', transferred: 'اتباعت', used: 'اتستخدمت' },
+  resaleTicketStatus: { valid: 'متاحة', listed: 'معروضة', 'pending-reactivation': 'مستنية السينما', transferred: 'اتباعت', used: 'اتستخدمت', 'under-review': 'تحت المراجعة' },
   resalePriceLabel: (max) => `السعر للتذكرة (لحد ${max})`,
   resalePriceCap: 'مينفعش تطلب أكتر من اللي دفعته، من غير الرسوم.',
   resaleBuyerPaysLine: 'المشتري بيدفع في التذكرة',
@@ -156,7 +170,7 @@ export const ar: typeof en = {
 
   resaleMineEmpty: 'لسه ما عرضتش تذاكر. افتح تذكرة من تذاكري عشان تبيعها.',
   resaleStatus: { open: 'معروضة', sold: 'اتباعت', withdrawn: 'اتسحبت', expired: 'اتقفلت مع بداية العرض', closed: 'اتقفلت' },
-  resaleTicketState: { listed: 'معروضة', reserved: 'جاري شراها', sold: 'اتباعت', withdrawn: 'اتسحبت', expired: 'ما اتباعتش', returned: 'رجعتلك' },
+  resaleTicketState: { listed: 'معروضة', reserved: 'جاري شراها', sold: 'اتباعت', withdrawn: 'اتسحبت', expired: 'ما اتباعتش', returned: 'رجعتلك', 'under-review': 'تحت المراجعة' },
   resalePriceEach: (price) => `${price} للتذكرة`,
   resaleYouReceiveEach: (amount) => `هتستلم ${amount} عن كل تذكرة تتباع`,
   resalePendingPayout: (amount) => `فلوس مستنية التحويل: ${amount}`,
@@ -164,6 +178,7 @@ export const ar: typeof en = {
   resaleWithdrawn: 'اتسحبت. تذاكرك رجعت صالحة.',
   resaleBusy: 'في حد بيشتري التذاكر دي دلوقتي. حاول تاني كمان دقيقة.',
   resaleWaitingCinema: 'مستنيين السينما ترجّع التذكرة دي صالحة. فريق الدعم عرف.',
+  resaleUnderReview: 'في بيعة من الإعلان ده ما كملتش. فريق الدعم بيراجع التذاكر مع السينما وهيكلمك.',
 
   resaleSellHint: 'مش هتقدر تروح؟ اعرض كل التذاكر أو بعضها بسعر لحد اللي دفعته.',
   resaleListedCount: (n) => (n === 1 ? 'تذكرة واحدة معروضة للبيع.' : n === 2 ? 'تذكرتين معروضين للبيع.' : `${n} تذاكر معروضة للبيع.`),
@@ -176,5 +191,6 @@ export const ar: typeof en = {
     transferred: 'المشتري خد تذكرة جديدة، والكود ده مبقاش شغال.',
     'pending-reactivation': 'مستنية السينما ترجّعها صالحة.',
     used: 'اتستخدمت قبل كده.',
+    'under-review': 'إعادة بيع التذكرة دي ما كملتش. فريق الدعم بيراجعها مع السينما وهيكلمك.',
   },
 };

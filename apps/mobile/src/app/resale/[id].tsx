@@ -65,12 +65,17 @@ export default function BuyResale() {
       router.push({ pathname: '/ticket/[id]', params: { id: booking.id } });
     } catch (e) {
       const status = e instanceof ApiError ? e.status : 0;
-      const code = e instanceof ApiError ? e.body.code : undefined;
+      const body = e instanceof ApiError ? e.body : {};
+      const code = body.code;
       if (code === 'unavailable') listing.reload();
       setError(
         status === 401 ? t.resaleSignInToBuy
           : status === 402 ? t.resalePaymentFailed
           : code === 'transfer-failed' ? t.resaleTransferFailed
+          : code === 'show-cancelled' ? t.resaleBuyShowCancelled
+          : code === 'purchase-cancelled' ? t.resalePurchaseCancelled
+          // Charged and not refunded: the reference lets support find the payment.
+          : code === 'refund-failed' ? t.resaleRefundFailed(String(body.reference ?? ''))
           : code === 'unavailable' ? t.resaleGone
           : status === 410 ? t.resaleClosed
           : t.genericError,
