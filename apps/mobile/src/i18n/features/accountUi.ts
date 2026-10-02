@@ -27,6 +27,7 @@ export const en = {
   historySignInKicker: 'Your account',
   historySignInTitle: 'Booked with your account?',
   historySignInBody: 'Sign in to see those tickets here too.',
+  historyGuestNote: 'Tickets you booked as a guest on this device with your account’s email join your account when you sign in.',
   onResale: (n: number) => `${n} on resale`,
   soldOnResale: (n: number) => `${n} sold on resale`,
 
@@ -73,6 +74,7 @@ export const ar: typeof en = {
   historySignInKicker: 'حسابك',
   historySignInTitle: 'حجزت بحسابك؟',
   historySignInBody: 'سجّل دخول عشان تشوف التذاكر دي هنا كمان.',
+  historyGuestNote: 'التذاكر اللي حجزتها كضيف على الجهاز ده بإيميل حسابك بتنضم لحسابك لما تسجّل دخول.',
   onResale: (n) => (n === 1 ? 'تذكرة معروضة للبيع' : n === 2 ? 'تذكرتين معروضين للبيع' : `${n} تذاكر معروضة للبيع`),
   soldOnResale: (n) => (n === 1 ? 'تذكرة اتباعت' : n === 2 ? 'تذكرتين اتباعوا' : `${n} تذاكر اتباعت`),
 

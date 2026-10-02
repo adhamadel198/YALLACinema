@@ -75,7 +75,8 @@ export default function Tickets() {
         </View>
       )}
 
-      <CardGrid columns={2} style={{ marginTop: 27 }}>
+      {/* Two cards side by side when signed out; the resale card alone spans the column. */}
+      <CardGrid columns={ready && !account ? 2 : 1} style={{ marginTop: 27 }}>
         {ready && !account ? (
           <Panel testID="tickets-sign-in" style={{ flexGrow: 1 }}>
             <Eyebrow>{c.historySignInKicker}</Eyebrow>
@@ -83,7 +84,7 @@ export default function Tickets() {
             <Text style={[type.small, { color: colors.muted, marginVertical: 13 }]}>{c.historySignInBody}</Text>
             <Button size="small" inline title={t.signIn} onPress={() => router.push(signInHref('/tickets'))} />
             {/* Guest bookings on this device made with the account's email join the account when signing in. */}
-            <Text style={[type.micro, { marginTop: 14 }]}>{t.authDeviceTickets}</Text>
+            <Text style={[type.micro, { marginTop: 14 }]}>{c.historyGuestNote}</Text>
           </Panel>
         ) : null}
         <TicketsCard style={{ flexGrow: 1 }} />
