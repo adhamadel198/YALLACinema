@@ -121,6 +121,8 @@ export async function resaleRoutes(app: FastifyInstance, { store, auth, payments
     const now = store.showtime(sold.showtimeId);
     return now ? { ...sold, startsAt: now.startsAt, format: now.format } : null;
   };
+  /** What the seller sees, with the show's current time and format if staff moved it. */
+  const forSeller = (l: Listing, lang: Lang) => sellerView(store, { ...l, showtime: liveShow(l.showtime) ?? l.showtime }, lang);
   /** A listing as buyers should see it now, or null once it can no longer be bought. */
   const buyable = (l: Listing): Listing | null => {
     const show = liveShow(l.showtime);
@@ -144,7 +146,7 @@ export async function resaleRoutes(app: FastifyInstance, { store, auth, payments
 
   app.get('/v1/resale/my-listings', { preHandler: auth.requireAccount }, async (req) => {
     const seller = await auth.account(req);
-    return (await resale.listingsOf(seller.id)).map((l) => sellerView(store, l, langOf(req)));
+    return (await resale.listingsOf(seller.id)).map((l) => forSeller(l, langOf(req)));
   });
 
   app.get('/v1/resale/payout-method', { preHandler: auth.requireAccount }, async (req) =>
@@ -220,7 +222,7 @@ export async function resaleRoutes(app: FastifyInstance, { store, auth, payments
     const created = await resale.createListing({ sellerAccountId: seller.id, booking: { ...booking, showtime: show }, ticketIds, price });
     if ('unavailable' in created)
       return reply.code(409).send({ error: 'Only unused tickets that are not already listed or transferred can be resold.', code: 'ineligible', tickets: created.unavailable.map((ticketId) => ({ ticketId })) });
-    return reply.code(201).send(sellerView(store, created.listing, langOf(req)));
+    return reply.code(201).send(forSeller(created.listing, langOf(req)));
   });
 
   /** The seller takes the unsold tickets off sale; they are valid again straight away. */
@@ -231,7 +233,7 @@ export async function resaleRoutes(app: FastifyInstance, { store, auth, payments
     if (listing.status !== 'open') return reply.code(409).send({ error: 'This listing has already closed.', code: 'closed' });
     const withdrawn = await resale.withdraw(listing.id);
     if (!withdrawn.length) return reply.code(409).send({ error: 'Someone is buying these tickets right now. Try again in a minute.', code: 'busy' });
-    return sellerView(store, (await resale.listing(listing.id))!, langOf(req));
+    return forSeller((await resale.listing(listing.id))!, langOf(req));
   });
 
   /**

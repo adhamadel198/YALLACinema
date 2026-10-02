@@ -781,6 +781,7 @@ test('resale follows the cinema’s corrections: a moved show sells at its new t
   // After the show's original start, before its new one: still on sale.
   s.setNow(Date.parse(`${showtime.startsAt.slice(0, 10)}T18:00:00+03:00`));
   assert.equal((await s.market())[0].showtime.localTime, '21:10');
+  assert.equal((await s.mine(s.seller.headers))[0].showtime.localTime, '21:10');
   const bought = await s.buy(s.buyer.headers, moved.json().id, [first]);
   assert.equal(bought.statusCode, 201, bought.body);
   assert.equal(bought.json().showtime.localTime, '21:10');
