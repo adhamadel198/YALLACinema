@@ -19,6 +19,8 @@ export interface StaffBooking {
   createdAt: string;
   /** The show as it was sold. */
   sold: { startsAt: string; format: string; price: number };
+  /** Bought through resale: its tickets replace the seller's ('transferred') and its price did not go to the cinema. */
+  resale: boolean;
 }
 
 export interface Totals { bookings: number; tickets: number; ticketRevenue: number; fees: number }

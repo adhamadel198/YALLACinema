@@ -52,11 +52,14 @@ export class Store {
 
   private now() { return new Date(this.clock()); }
 
-  /** Seats sold through the platform or held in someone's checkout, per showtime. */
+  /**
+   * Seats sold through the platform or held in someone's checkout, per showtime, each seat once: a resold seat
+   * has the seller's 'transferred' ticket and the buyer's replacement, and stays taken.
+   */
   async takenSeats(showtimeIds: string[]): Promise<Map<string, SeatId[]>> {
     const { rows } = await this.db.query<{ showtime_id: string; seat: string }>(
       `SELECT showtime_id, seat FROM tickets WHERE showtime_id = ANY($1)
-       UNION ALL
+       UNION
        SELECT showtime_id, seat FROM held_seats WHERE showtime_id = ANY($1) AND expires_at > $2`,
       [showtimeIds, this.now()],
     );
@@ -80,7 +83,7 @@ export class Store {
     try {
       return await this.db.transaction(async (tx) => {
         await tx.query('DELETE FROM holds WHERE expires_at <= $1 OR client_id = $2', [now, clientId]);
-        const sold = await tx.query<{ seat: string }>('SELECT seat FROM tickets WHERE showtime_id = $1 AND seat = ANY($2)', [showtimeId, seats]);
+        const sold = await tx.query<{ seat: string }>('SELECT DISTINCT seat FROM tickets WHERE showtime_id = $1 AND seat = ANY($2)', [showtimeId, seats]);
         if (sold.rows.length) throw new SeatsTaken(sold.rows.map((r) => r.seat));
         await tx.query('INSERT INTO holds (id, showtime_id, client_id, seats, expires_at) VALUES ($1, $2, $3, $4, $5)',
           [hold.id, showtimeId, clientId, seats, hold.expiresAt]);
