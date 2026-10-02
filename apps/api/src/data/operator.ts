@@ -39,6 +39,11 @@ export interface StaffBooking {
   createdAt: string;
   /** The show as it was sold. */
   sold: { startsAt: string; format: string; price: number };
+  /**
+   * Bought from another customer through resale (BRD 11): the tickets replace the seller's, which are now
+   * 'transferred', and `price` went to the seller and YALLA, not the cinema.
+   */
+  resale: boolean;
 }
 
 type OverrideRow = {
@@ -253,15 +258,18 @@ export class Corrections {
       params,
     );
     if (!rows.length) return [];
+    const ids = rows.map((r) => r.id);
     const tickets = await this.db.query<{ booking_id: string; seat: string; status: Ticket['status'] }>(
-      'SELECT booking_id, seat, status FROM tickets WHERE booking_id = ANY($1::uuid[])', [rows.map((r) => r.id)]);
+      'SELECT booking_id, seat, status FROM tickets WHERE booking_id = ANY($1::uuid[])', [ids]);
+    const resold = await this.db.query<{ booking_id: string }>('SELECT booking_id FROM resale_sales WHERE booking_id = ANY($1::uuid[])', [ids]);
+    const resale = new Set(resold.rows.map((r) => r.booking_id));
     return rows.map((r) => {
       const own = tickets.rows.filter((t) => t.booking_id === r.id).sort((a, b) => seatOrder(a.seat, b.seat));
       return {
         reference: r.reference, showtimeId: r.showtime_id, movieId: r.movie_id, cinemaId: r.cinema_id, holderName: r.holder.name,
         seats: own.map((t) => t.seat), tickets: own.map((t) => ({ seat: t.seat, status: t.status })),
         price: r.price, paymentMethod: r.payment_method, createdAt: iso(r.created_at),
-        sold: { startsAt: r.starts_at, format: r.format, price: r.ticket_price },
+        sold: { startsAt: r.starts_at, format: r.format, price: r.ticket_price }, resale: resale.has(r.id),
       };
     });
   }

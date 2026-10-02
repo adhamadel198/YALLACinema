@@ -5,6 +5,9 @@ import { isUniqueViolation } from '../db/index.ts';
 
 const scryptAsync = promisify(scrypt) as (password: string, salt: Buffer, keylen: number) => Promise<Buffer>;
 export const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+/** After this many failed sign-ins for one email within SIGN_IN_WINDOW_MS, that email is refused until the window passes. */
+export const MAX_FAILED_SIGN_INS = 10;
+export const SIGN_IN_WINDOW_MS = 15 * 60 * 1000;
 
 export type Role = 'customer' | 'operator';
 export interface Account {
@@ -18,6 +21,8 @@ export interface Account {
   createdAt: string;
 }
 export type NewAccount = { name: string; email: string; mobile: string; password: string };
+/** The account, a wrong email or password, or too many failures for this email: try again after `retryAfterMs`. */
+export type SignIn = { account: Account } | { wrong: true } | { retryAfterMs: number };
 
 type AccountRow = { id: string; email: string; name: string; mobile: string; role: Role; cinema_id: string | null; created_at: Date | string; password_hash: string };
 const toAccount = (r: AccountRow): Account => ({
@@ -71,6 +76,35 @@ export class Accounts {
     return (await passwordMatches(password, rows[0].password_hash)) ? toAccount(rows[0]) : null;
   }
 
+  /**
+   * Checks an email and password, allowing MAX_FAILED_SIGN_INS failures per email within SIGN_IN_WINDOW_MS.
+   * Attempts are counted in the database, so the limit holds however many API instances are running, and
+   * emails without an account are counted the same way, so a refusal doesn't reveal which emails exist.
+   */
+  async signIn(email: string, password: string): Promise<SignIn> {
+    const key = email.trim().toLowerCase();
+    const now = this.clock();
+    const since = new Date(now - SIGN_IN_WINDOW_MS);
+    // The attempt is stored before the password is checked and deleted if it succeeds, so attempts made in
+    // parallel count against the limit too.
+    const id = randomUUID();
+    await this.db.query('DELETE FROM sign_in_attempts WHERE at <= $1', [since]);
+    await this.db.query('INSERT INTO sign_in_attempts (id, email, at) VALUES ($1, $2, $3)', [id, key, new Date(now)]);
+    const { rows: [{ n }] } = await this.db.query<{ n: number }>(
+      'SELECT count(*)::int AS n FROM sign_in_attempts WHERE email = $1 AND at > $2', [key, since]);
+    if (n > MAX_FAILED_SIGN_INS) {
+      // Refused attempts don't count, so the email opens again once the oldest of its last failures leaves the window.
+      await this.db.query('DELETE FROM sign_in_attempts WHERE id = $1', [id]);
+      const { rows: [oldest] } = await this.db.query<{ at: Date | string }>(
+        'SELECT at FROM sign_in_attempts WHERE email = $1 AND at > $2 ORDER BY at DESC LIMIT 1 OFFSET $3', [key, since, MAX_FAILED_SIGN_INS - 1]);
+      return { retryAfterMs: Math.max(1000, oldest ? new Date(oldest.at).getTime() + SIGN_IN_WINDOW_MS - now : 0) };
+    }
+    const account = await this.verify(email, password);
+    if (!account) return { wrong: true };
+    await this.db.query('DELETE FROM sign_in_attempts WHERE id = $1', [id]);
+    return { account };
+  }
+
   /** Starts a session and returns its token, which the app sends as `Authorization: Bearer <token>`. */
   async startSession(accountId: string): Promise<string> {
     const token = randomBytes(32).toString('base64url');
@@ -99,12 +133,17 @@ export class Accounts {
   }
 
   /**
-   * Links guest bookings to the account. Only bookings with no account yet are linked, so nobody can
-   * take a booking that already belongs to someone. Returns the ids it linked.
+   * Links guest bookings to the account: only bookings with no account yet, made with the account's email
+   * (ignoring case and surrounding spaces), so nobody can take a booking that is someone else's even if they
+   * know its id. Returns the ids it linked.
    */
   async claimBookings(accountId: string, bookingIds: string[]): Promise<string[]> {
     const { rows } = await this.db.query<{ id: string }>(
-      'UPDATE bookings SET account_id = $1 WHERE id = ANY($2::uuid[]) AND account_id IS NULL RETURNING id', [accountId, bookingIds]);
+      `UPDATE bookings b SET account_id = a.id FROM accounts a
+        WHERE a.id = $1 AND b.id = ANY($2::uuid[]) AND b.account_id IS NULL
+          AND lower(btrim(b.holder->>'email')) = lower(btrim(a.email))
+       RETURNING b.id`,
+      [accountId, bookingIds]);
     return rows.map((r) => r.id);
   }
 }

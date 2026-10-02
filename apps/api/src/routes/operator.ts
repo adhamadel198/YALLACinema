@@ -13,10 +13,16 @@ type Deps = { store: Store; accounts: Accounts; auth: Auth; corrections: Correct
 const localTime = (iso: string) => iso.slice(11, 16);
 const dayPattern = '^\\d{4}-\\d{2}-\\d{2}$';
 
+/**
+ * A resold seat has two tickets: the seller's, now 'transferred', and the buyer's replacement in a resale booking.
+ * Tickets count the seat once. Ticket revenue is what the cinema was paid for seats, so it stays as the seller's
+ * booking paid it: a resale moves money between customers (and YALLA's fees), not to the cinema. Fees are the
+ * booking fees customers paid YALLA, resale purchases included.
+ */
 const totalsOf = (bookings: StaffBooking[]) => ({
   bookings: bookings.length,
-  tickets: bookings.reduce((n, b) => n + b.tickets.length, 0),
-  ticketRevenue: bookings.reduce((n, b) => n + b.price.tickets, 0),
+  tickets: bookings.reduce((n, b) => n + b.tickets.filter((t) => t.status !== 'transferred').length, 0),
+  ticketRevenue: bookings.reduce((n, b) => n + (b.resale ? 0 : b.price.tickets), 0),
   fees: bookings.reduce((n, b) => n + b.price.fees, 0),
 });
 
@@ -103,7 +109,10 @@ export async function operatorRoutes(app: FastifyInstance, { store, accounts, au
     };
   });
 
-  /** Find a booking by its reference (with or without the "YL-"). 403 when it is another cinema's. */
+  /**
+   * Find a booking by its reference (with or without the "YL-"). Another cinema's booking is 404, like an unknown
+   * reference, so staff can't learn which references exist elsewhere.
+   */
   app.get<{ Params: { reference: string } }>('/v1/operator/bookings/:reference', {
     ...staffOnly,
     schema: { params: { type: 'object', properties: { reference: { type: 'string', pattern: '^[A-Za-z0-9-]{3,32}$' } } } },
@@ -112,8 +121,7 @@ export async function operatorRoutes(app: FastifyInstance, { store, accounts, au
     if (!cinema) return reply.code(403).send(noCinema);
     const typed = req.params.reference.toUpperCase();
     const booking = await corrections.bookingByReference(typed.startsWith('YL-') ? typed : `YL-${typed}`);
-    if (!booking) return reply.code(404).send({ error: 'No booking has that reference.' });
-    if (booking.cinemaId !== cinema.id) return reply.code(403).send({ error: 'That booking is for another cinema.' });
+    if (!booking || booking.cinemaId !== cinema.id) return reply.code(404).send({ error: 'No booking has that reference.' });
     const listed = store.scheduled.find((s) => s.id === booking.showtimeId);
     return { booking, show: listed ? listedView(listed) : await unlistedView(booking) };
   });

@@ -52,7 +52,7 @@ test('the embedded database has one demo staff account per cinema', async () => 
   }
 });
 
-test('staff see only their own cinema: bookings, references and showtimes of another cinema are 403', async () => {
+test('staff see only their own cinema: another cinema\'s bookings are not found and its showtimes are 403', async () => {
   const app = await buildApp();
   const vox = await staff(app, 'vox-moe');
   const voxShow = await showAt(app, 'vox-moe');
@@ -79,19 +79,67 @@ test('staff see only their own cinema: bookings, references and showtimes of ano
   assert.deepEqual(show.totals, { bookings: 1, tickets: 2, ticketRevenue: voxShow.price * 2, fees: 10 });
   assert.equal(day.totals.tickets, 2);
 
-  // Search by reference: with or without "YL-", any case. Another cinema's booking is 403.
+  // Search by reference: with or without "YL-", any case. Another cinema's booking answers exactly like an
+  // unknown reference, so it doesn't reveal that the reference exists.
   const found = await app.inject({ url: `/v1/operator/bookings/${mine.reference.slice(3).toLowerCase()}`, headers: vox });
   assert.equal(found.statusCode, 200);
   assert.equal(found.json().booking.reference, mine.reference);
   assert.equal(found.json().show.id, voxShow.showtimeId);
-  assert.equal((await app.inject({ url: `/v1/operator/bookings/${theirs.reference}`, headers: vox })).statusCode, 403);
-  assert.equal((await app.inject({ url: '/v1/operator/bookings/YL-ZZZZZZ', headers: vox })).statusCode, 404);
+  const elsewhere = await app.inject({ url: `/v1/operator/bookings/${theirs.reference}`, headers: vox });
+  const unknown = await app.inject({ url: '/v1/operator/bookings/YL-ZZZZZZ', headers: vox });
+  assert.equal(elsewhere.statusCode, 404);
+  assert.equal(unknown.statusCode, 404);
+  assert.deepEqual(elsewhere.json(), unknown.json());
 
   // Another cinema's showtime can be neither seen nor corrected.
   assert.equal((await app.inject({ url: `/v1/operator/showtimes/${reelShow.showtimeId}`, headers: vox })).statusCode, 403);
   assert.equal((await correct(app, vox, reelShow.showtimeId, { price: 1 })).statusCode, 403);
   assert.equal((await correct(app, vox, 'no-such-show', { price: 100 })).statusCode, 404);
   assert.equal((await showAt(app, 'reel-cfc')).price, reelShow.price);
+});
+
+test('a resold seat counts once in staff totals and seats left, and stays taken for customers', async () => {
+  const app = await buildApp({ clock: () => Date.parse('2026-10-01T06:00:00Z') }); // 09:00 in Cairo, before every show
+  const vox = await staff(app, 'vox-moe');
+  const show = await showAt(app, 'vox-moe');
+  const signUp = async (name: string) => bearer((await app.inject({
+    method: 'POST', url: '/v1/auth/sign-up', payload: { ...guest, name, email: `${name.toLowerCase()}@example.com`, password: 'popcorn-2026' } })).json().token);
+  const seller = await signUp('Seller');
+  const buyer = await signUp('Buyer');
+  const held = await hold(app, show.showtimeId, 2);
+  const booking = (await app.inject({ method: 'POST', url: '/v1/bookings', headers: seller,
+    payload: { holdId: held.json().id, guest, paymentMethod: 'card', acceptPolicy: true } })).json() as { id: string; tickets: { id: string; seat: string }[] };
+  const view = async () => (await app.inject({ url: `/v1/operator/showtimes/${show.showtimeId}`, headers: vox })).json().show;
+  const before = await view();
+  assert.deepEqual(before.totals, { bookings: 1, tickets: 2, ticketRevenue: show.price * 2, fees: 10 });
+
+  // The seller resells one ticket: it becomes 'transferred' and the buyer gets a replacement for the same seat.
+  const [resold, kept] = booking.tickets;
+  await app.inject({ method: 'POST', url: '/v1/resale/payout-method', headers: seller, payload: { kind: 'wallet', mobile: '010 1234 5678' } });
+  const listing = (await app.inject({ method: 'POST', url: '/v1/resale/listings', headers: seller,
+    payload: { bookingId: booking.id, ticketIds: [resold.id], price: show.price - 20 } })).json();
+  const bought = await app.inject({ method: 'POST', url: `/v1/resale/listings/${listing.id}/purchase`, headers: buyer, payload: { ticketIds: [resold.id], paymentMethod: 'wallet' } });
+  assert.equal(bought.statusCode, 201, bought.body);
+
+  // Staff count the seat once, and the cinema's revenue is still what the seller paid it; the buyer's 5 EGP fee is YALLA's.
+  const after = await view();
+  assert.deepEqual(after.totals, { bookings: 2, tickets: 2, ticketRevenue: show.price * 2, fees: 15 });
+  assert.equal(after.seatsLeft, before.seatsLeft);
+  const statuses = (b: { resale: boolean; tickets: { seat: string; status: string }[] }) => [b.resale, Object.fromEntries(b.tickets.map((t) => [t.seat, t.status]))];
+  assert.deepEqual(after.bookings.map(statuses).sort(), [[false, { [resold.seat]: 'transferred', [kept.seat]: 'valid' }], [true, { [resold.seat]: 'valid' }]]);
+  const day = (await app.inject({ url: '/v1/operator/bookings', headers: vox })).json();
+  assert.deepEqual([day.totals.tickets, day.totals.ticketRevenue], [2, show.price * 2]);
+  assert.equal(day.shows.find((s: { id: string }) => s.id === show.showtimeId).seatsLeft, before.seatsLeft);
+
+  // Customers still see the seat taken, once: on the seat map, in search and when holding it.
+  const map = (await app.inject(`/v1/showtimes/${show.showtimeId}/seats?count=1&arrangement=connected`)).json();
+  assert.deepEqual(map.unavailable.filter((s: string) => s === resold.seat), [resold.seat]);
+  assert.ok(map.groups.every((g: { seats: string[] }) => !g.seats.includes(resold.seat)));
+  const { results } = (await app.inject('/v1/movies/the-last-light/showtimes?count=1&arrangement=connected&cinemaId=vox-moe')).json();
+  assert.equal(results.find((r: { showtimeId: string }) => r.showtimeId === show.showtimeId).matches.connected, after.seatsLeft);
+  const late = await app.inject({ method: 'POST', url: '/v1/holds', payload: { showtimeId: show.showtimeId, seats: [resold.seat] }, headers: { 'x-client-id': 'late-customer' } });
+  assert.equal(late.statusCode, 409);
+  assert.deepEqual(late.json().unavailable, [resold.seat]);
 });
 
 test('corrections apply to listings, search, seat maps, holds and new bookings', async () => {
