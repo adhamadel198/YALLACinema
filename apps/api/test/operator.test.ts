@@ -142,6 +142,26 @@ test('a resold seat counts once in staff totals and seats left, and stays taken 
   assert.deepEqual(late.json().unavailable, [resold.seat]);
 });
 
+test('a ticket in any status but transferred counts in staff totals and keeps its seat taken', async () => {
+  const db = await createDb(undefined, 'memory://');
+  const app = await buildApp({ db });
+  const vox = await staff(app, 'vox-moe');
+  const show = await showAt(app, 'vox-moe');
+  const booking = await book(app, show.showtimeId, 2);
+  const view = async () => (await app.inject({ url: `/v1/operator/showtimes/${show.showtimeId}`, headers: vox })).json().show;
+  const before = await view();
+  // E.g. a resale transfer the cinema may already have made: unusable and off sale, but the seat is not free.
+  const seat = booking.tickets[0].seat;
+  await db.query(`UPDATE tickets SET status = 'under-review' WHERE showtime_id = $1 AND seat = $2`, [show.showtimeId, seat]);
+  const after = await view();
+  assert.deepEqual(after.totals, before.totals);
+  assert.equal(after.seatsLeft, before.seatsLeft);
+  assert.ok((await app.inject(`/v1/showtimes/${show.showtimeId}/seats`)).json().unavailable.includes(seat));
+  const late = await app.inject({ method: 'POST', url: '/v1/holds', payload: { showtimeId: show.showtimeId, seats: [seat] }, headers: { 'x-client-id': 'late-customer' } });
+  assert.deepEqual([late.statusCode, late.json().unavailable], [409, [seat]]);
+  await app.close();
+});
+
 test('corrections apply to listings, search, seat maps, holds and new bookings', async () => {
   const app = await buildApp();
   const vox = await staff(app, 'vox-moe');
