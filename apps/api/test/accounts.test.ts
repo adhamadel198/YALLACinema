@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { buildApp } from '../src/app.ts';
 import { createDb } from '../src/db/index.ts';
+import { SIGN_INS_PER_ADDRESS, SIGN_UPS_PER_ADDRESS } from '../src/routes/accounts.ts';
 
 const mona = { name: 'Mona Adel', email: 'Mona@Example.com', mobile: '+20 100 123 4567', password: 'popcorn-2026' };
 const karim = { name: 'Karim Nabil', email: 'karim@example.com', mobile: '01001234567', password: 'nachos-2026' };
@@ -41,16 +42,16 @@ test('sign-up and sign-in are rate limited per client address, whatever X-Client
     headers: { 'x-client-id': `rotating-client-${i}` }, payload: { email: `guess${i}@example.com`, password: 'wrong-password' },
   });
   const codes = [];
-  for (let i = 0; i < 11; i++) codes.push((await signIn(i)).statusCode);
-  assert.deepEqual(codes, [...Array(10).fill(401), 429]);
-  assert.equal((await signIn(11, '203.0.113.7')).statusCode, 401); // Another address has its own allowance.
+  for (let i = 0; i <= SIGN_INS_PER_ADDRESS; i++) codes.push((await signIn(i)).statusCode);
+  assert.deepEqual(codes, [...Array(SIGN_INS_PER_ADDRESS).fill(401), 429]);
+  assert.equal((await signIn(SIGN_INS_PER_ADDRESS + 1, '203.0.113.7')).statusCode, 401); // Another address has its own allowance.
 
   const signUps = [];
-  for (let i = 0; i < 11; i++) {
+  for (let i = 0; i <= SIGN_UPS_PER_ADDRESS; i++) {
     signUps.push((await app.inject({ method: 'POST', url: '/v1/auth/sign-up', headers: { 'x-client-id': `rotating-client-${i}` },
       payload: { ...mona, email: `new${i}@example.com` } })).statusCode);
   }
-  assert.deepEqual(signUps, [...Array(10).fill(201), 429]);
+  assert.deepEqual(signUps, [...Array(SIGN_UPS_PER_ADDRESS).fill(201), 429]);
 });
 
 test('ten failed sign-ins lock an email for 15 minutes on every API instance and from every address', async () => {

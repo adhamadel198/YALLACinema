@@ -16,6 +16,10 @@ const limit = (max: number) => ({ rateLimit: { max, timeWindow: '10 minutes', ke
  * limits failures per email in the database (Accounts.signIn), which holds across instances.
  */
 const perAddress = (max: number) => ({ rateLimit: { max, timeWindow: '10 minutes' } });
+// Sign-in allows more: customers behind one mobile carrier address share it, and guessing one account's
+// password is already stopped per email.
+export const SIGN_INS_PER_ADDRESS = 30;
+export const SIGN_UPS_PER_ADDRESS = 10;
 const signedIn = (token: string, account: Account) => ({ token, account });
 
 /**
@@ -24,7 +28,7 @@ const signedIn = (token: string, account: Account) => ({ token, account });
  */
 export async function accountRoutes(app: FastifyInstance, { store, accounts, auth }: Deps) {
   app.post<{ Body: { name: string; email: string; mobile: string; password: string } }>('/v1/auth/sign-up', {
-    config: perAddress(10),
+    config: perAddress(SIGN_UPS_PER_ADDRESS),
     schema: {
       body: {
         type: 'object', required: ['name', 'email', 'mobile', 'password'],
@@ -38,7 +42,7 @@ export async function accountRoutes(app: FastifyInstance, { store, accounts, aut
   });
 
   app.post<{ Body: { email: string; password: string } }>('/v1/auth/sign-in', {
-    config: perAddress(10),
+    config: perAddress(SIGN_INS_PER_ADDRESS),
     schema: {
       body: { type: 'object', required: ['email', 'password'], properties: { email: { type: 'string', maxLength: 200 }, password: { type: 'string', maxLength: 200 } } },
     },
