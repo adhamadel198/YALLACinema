@@ -60,8 +60,9 @@ export function PageIntro({ eyebrow, title, lead, children, center, style }: {
   return (
     <View style={[{ paddingTop: narrow ? 28 : 38, paddingBottom: narrow ? 18 : 24 }, center && { alignItems: 'center' }, style]}>
       {eyebrow ? <Eyebrow style={[{ marginBottom: 7 }, center && { textAlign: 'center' }]}>{eyebrow}</Eyebrow> : null}
-      <H1 center={center} style={{ marginBottom: 12 }}>{title}</H1>
-      {lead ? <Lead center={center}>{lead}</Lead> : null}
+      {/* The live lead is a <p>: its 16px top margin collapses with the title's 12px, and it keeps 16px below. */}
+      <H1 center={center} style={{ marginBottom: lead ? 16 : 12 }}>{title}</H1>
+      {lead ? <Lead center={center} style={{ marginBottom: 16 }}>{lead}</Lead> : null}
       {children}
     </View>
   );

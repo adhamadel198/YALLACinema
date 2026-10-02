@@ -203,8 +203,7 @@ export default function SeatScreen() {
           { label: s.movie.title, href: { pathname: '/movie/[id]', params: { id: s.movie.id } } },
           { label: t.chooseSeats },
         ]} />
-        {/* The live lead is a paragraph with a 16px bottom margin, which PageIntro leaves out. */}
-        <PageIntro style={{ paddingBottom: (narrow ? 18 : 24) + 16 }} eyebrow={t.booking.yourMovieNight} title={t.booking.chooseYourSeats} lead={t.booking.seatsMeta(count, s.cinema.name, showWhen(s.startsAt, t))} />
+        <PageIntro eyebrow={t.booking.yourMovieNight} title={t.booking.chooseYourSeats} lead={t.booking.seatsMeta(count, s.cinema.name, showWhen(s.startsAt, t))} />
         <Steps step={1} />
         <Columns ratio={[1.2, 0.8]} endMin={260} stickyEnd>{[
           <View key="map">{seatPanel}</View>,
