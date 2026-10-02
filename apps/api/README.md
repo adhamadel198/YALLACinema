@@ -27,7 +27,7 @@ src/
   data/resale.ts     resale listings, sales and payout details
   data/operator.ts   staff corrections, show changes, the staff view of bookings, demo staff accounts
   auth.ts            who is signed in (Authorization: Bearer <session token>) and route guards
-  db/                database connection (Postgres or embedded PGlite) and schema/, applied in name order
+  db/                database connection (Postgres or embedded PGlite) and schema/, applied in name order when it changes
   integrations/      payment provider and cinema integration interfaces, with sandbox versions that always succeed
   routes/            HTTP endpoints
 ```
@@ -104,7 +104,7 @@ Each pilot cinema will plug in behind `integrations/cinema.ts` (today it confirm
 
 ## Database
 
-Accounts, holds, bookings, tickets, resale and staff corrections are stored in Postgres. The schema is the SQL files in `src/db/schema/`, applied in name order on every start, so each statement must be safe to run again (`IF NOT EXISTS`). Add a new numbered file for each change.
+Accounts, holds, bookings, tickets, resale and staff corrections are stored in Postgres. The schema is the SQL files in `src/db/schema/`. At start the API looks up a hash of those files in `schema_versions`: if exactly these files were applied before, it runs nothing, so a usual start takes no locks on the tables. Otherwise it runs every file in name order and records the hash, in one transaction, so each statement must be safe to run again (`IF NOT EXISTS`). Add a new numbered file for each change; it is applied at the next start. On Postgres, instances starting together take turns (an advisory lock), and a start that waits more than 5 seconds for a lock fails rather than queue behind purchases in progress; the Vercel entry tries again on the next request.
 
 - **Development and tests:** no setup. Without `DATABASE_URL` the API uses [PGlite](https://pglite.dev), an embedded Postgres, storing data in `apps/api/.data/pglite` (override with `PGLITE_DIR`). Delete that folder to start fresh. Tests use an in-memory database.
 - **Production:** set `DATABASE_URL=postgres://…` (on Vercel, `POSTGRES_URL` also works). This path uses the same SQL but has not been run against a hosted Postgres yet.
