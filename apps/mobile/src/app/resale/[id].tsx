@@ -23,11 +23,12 @@ export default function BuyResale() {
   const { t, lang } = useI18n();
   const { account, ready } = useAuth();
   const { id } = useLocalSearchParams<{ id: string }>();
-  // null once the listing has closed (sold out, withdrawn or the show started).
-  const listing = useRequest(() => resaleApi.listing(id).catch((e) => {
+  // null once the listing has closed (sold out, withdrawn or the show started). Loads once the saved session is
+  // restored, so a seller never sees Pay on their own listing.
+  const listing = useRequest(() => (!ready ? Promise.resolve(undefined) : resaleApi.listing(id).catch((e) => {
     if (e instanceof ApiError && (e.status === 410 || e.status === 404)) return null;
     throw e;
-  }), [id, lang, account?.id]);
+  })), [id, lang, ready, account?.id]);
   const [selected, setSelected] = useState<string[]>([]);
   const [method, setMethod] = useState<PaymentMethod>('card');
   const [busy, setBusy] = useState(false);

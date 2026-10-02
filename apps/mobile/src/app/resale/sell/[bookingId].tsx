@@ -1,5 +1,5 @@
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useEffect, useRef, useState, type ComponentProps } from 'react';
+import { useLayoutEffect, useRef, useState, type ComponentProps } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { api, ApiError } from '../../../api/client';
 import { RESALE_BUYER_FEE, RESALE_SELLER_FEE, resaleApi, sellerReceives, type PayoutDetails, type PayoutMethod } from '../../../api/resale';
@@ -28,10 +28,12 @@ export default function SellTickets() {
   const { t, lang } = useI18n();
   const { account, ready } = useAuth();
   const { bookingId } = useLocalSearchParams<{ bookingId: string }>();
+  // Loads once the saved session is restored: loaded before it, a seller's payout details looked missing.
   const data = useRequest(async () => {
-    const [booking, payout] = await Promise.all([api.booking(bookingId), account ? resaleApi.payoutMethod() : null]);
+    if (!ready || !account) return null;
+    const [booking, payout] = await Promise.all([api.booking(bookingId), resaleApi.payoutMethod()]);
     return { booking, payout };
-  }, [bookingId, lang, account?.id]);
+  }, [bookingId, lang, ready, account?.id]);
 
   const [payout, setPayout] = useState<PayoutMethod | null>();
   const [editingPayout, setEditingPayout] = useState(false);
@@ -46,7 +48,8 @@ export default function SellTickets() {
   const sending = useRef(false);
 
   const loaded = data.data;
-  useEffect(() => {
+  // Before the screen paints, so the payout form and price error never flash before the loaded values are in.
+  useLayoutEffect(() => {
     if (!loaded) return;
     setPayout(loaded.payout);
     setSelected(loaded.booking.tickets.filter((x) => x.status === 'valid').map((x) => x.id));
